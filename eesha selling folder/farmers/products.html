@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farm Products - EeshaMart Farmer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#059669',
+                        'primary-light': '#10B981',
+                        'primary-dark': '#047857',
+                        'dark-green': '#14532d',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #f0fdf4; }
+        
+        .notification {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            background: white;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            transform: translateX(150%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+        }
+        .notification.show { transform: translateX(0); }
+        
+        .image-preview {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #d1fae5;
+        }
+        
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .stock-badge {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .stock-low { background: #fef2f2; color: #991b1b; }
+        .stock-medium { background: #fef3c7; color: #92400e; }
+        .stock-good { background: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Notification -->
+    <div id="notification" class="notification" role="alert">
+        <div class="flex items-center gap-3">
+            <div id="notifIcon"></div>
+            <div id="notifText" class="font-medium"></div>
+        </div>
+    </div>
+
+    <!-- Top Navigation -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <nav class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="flex items-center gap-2 text-primary font-bold text-lg">
+                    <i class="fas fa-seedling text-xl"></i>
+                    <span>Farmer Dashboard</span>
+                </a>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="text-gray-600 hover:text-primary">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Page Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-dark-green">Farm Products</h1>
+                <p class="text-gray-600 mt-1">Manage your agricultural products</p>
+            </div>
+            <div class="flex items-center gap-3 mt-4 md:mt-0">
+                <span class="text-sm text-gray-500">
+                    <i class="fas fa-box mr-1"></i>
+                    <span id="totalProducts">0</span> products
+                </span>
+                <button onclick="openModal()" class="bg-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-dark transition flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    Add Product
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex flex-wrap gap-3">
+                <select id="categoryFilter" class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                    <option value="">All Categories</option>
+                    <option value="Grains & Cereals">🌾 Grains & Cereals</option>
+                    <option value="Vegetables">🥬 Vegetables</option>
+                    <option value="Fruits">🍎 Fruits</option>
+                    <option value="Tubers">🥔 Tubers</option>
+                    <option value="Livestock">🐄 Livestock & Poultry</option>
+                    <option value="Dairy & Eggs">🥚 Dairy & Eggs</option>
+                    <option value="Spices & Herbs">🌿 Spices & Herbs</option>
+                </select>
+                <select id="stockFilter" class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                    <option value="">All Stock Levels</option>
+                    <option value="low">Low Stock (&lt;10)</option>
+                    <option value="medium">Medium Stock (10-50)</option>
+                    <option value="good">Good Stock (50+)</option>
+                </select>
+            </div>
+            <div class="relative">
+                <input type="text" id="searchInput" placeholder="Search products..." 
+                       class="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary w-64">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Products will be loaded here -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16">
+            <i class="fas fa-seedling text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No products yet</h3>
+            <p class="text-gray-500 mb-6">Start adding your farm produce to sell</p>
+            <button onclick="openModal()" class="bg-primary text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-dark transition">
+                <i class="fas fa-plus mr-2"></i>Add Your First Product
+            </button>
+        </div>
+    </main>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="productModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center overflow-y-auto p-4">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                <h2 id="modalTitle" class="text-xl font-bold text-dark-green">Add Farm Product</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="productForm" class="p-6">
+                <input type="hidden" id="productId">
+                
+                <!-- Basic Info -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
+                        <input type="text" id="productName" required
+                               class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                               placeholder="e.g., Fresh Rice, Maize, Tomatoes">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                        <select id="productCategory" required
+                                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary">
+                            <option value="">Select category</option>
+                            <option value="Grains & Cereals">🌾 Grains & Cereals (Rice, Maize, Wheat, Beans)</option>
+                            <option value="Vegetables">🥬 Vegetables (Fresh & Leafy Greens)</option>
+                            <option value="Fruits">🍎 Fruits (Fresh & Dried)</option>
+                            <option value="Tubers">🥔 Tubers (Yam, Cassava, Potatoes)</option>
+                            <option value="Livestock">🐄 Livestock & Poultry</option>
+                            <option value="Dairy & Eggs">🥚 Dairy & Eggs</option>
+                            <option value="Spices & Herbs">🌿 Spices & Herbs</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Product Image URL *</label>
+                        <input type="url" id="productImage" required
+                               class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                               placeholder="https://example.com/image.jpg" onchange="previewImage()">
+                    </div>
+                </div>
+
+                <!-- Pricing & Quantity -->
+                <div class="bg-green-50 rounded-xl p-6 mb-6">
+                    <h3 class="font-semibold text-dark-green mb-4 flex items-center gap-2">
+                        <i class="fas fa-naira-sign"></i>
+                        Pricing & Quantity
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Price (₦) *</label>
+                            <input type="number" id="productPrice" min="0" step="1" required
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                   placeholder="0">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Compare at Price (₦)</label>
+                            <input type="number" id="comparePrice" min="0" step="1"
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                   placeholder="Original price for discount">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Quantity *</label>
+                            <input type="number" id="productStock" min="0" value="1" required
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                   placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Unit of Measurement *</label>
+                            <select id="productUnit" required
+                                    class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary">
+                                <option value="piece">Per Piece</option>
+                                <option value="kg">Per Kilogram (kg)</option>
+                                <option value="bag">Per Bag (50kg bag)</option>
+                                <option value="basket">Per Basket</option>
+                                <option value="crate">Per Crate</option>
+                                <option value="dozen">Per Dozen</option>
+                                <option value="ton">Per Tonne</option>
+                                <option value="liter">Per Liter</option>
+                                <option value="bunch">Per Bunch</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Harvest Date</label>
+                            <input type="date" id="harvestDate"
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary">
+                            <p class="text-xs text-gray-500 mt-1">When was this produce harvested?</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk Pricing -->
+                <div class="border border-green-200 rounded-xl p-6 mb-6">
+                    <label class="flex items-center gap-3 cursor-pointer mb-4">
+                        <input type="checkbox" id="hasBulkPrice" class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary" onchange="toggleBulkPricing()">
+                        <span class="font-medium text-gray-700">
+                            <i class="fas fa-boxes mr-2"></i>
+                            Available for Bulk Purchase
+                        </span>
+                    </label>
+                    
+                    <div id="bulkPricingSection" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 pl-8">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Minimum Order Quantity</label>
+                            <input type="number" id="bulkMinQty" min="1"
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                   placeholder="e.g., 10 bags">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Bulk Price per Unit (₦)</label>
+                            <input type="number" id="bulkPrice" min="0" step="1"
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                   placeholder="Discounted price for bulk">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea id="productDesc" rows="4"
+                              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                              placeholder="Describe your product, its quality, freshness, source farm, etc."></textarea>
+                </div>
+
+                <!-- Image Preview -->
+                <div id="imagePreview" class="hidden mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Image Preview</label>
+                    <img id="previewImg" class="image-preview" src="" alt="Preview">
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-4 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="closeModal()" 
+                            class="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition">
+                        <i class="fas fa-save mr-2"></i>
+                        <span id="submitText">Add Product</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let supabase;
+        let currentUser = null;
+        let allProducts = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            supabase = window.supabase;
+            
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            
+            // Setup event listeners
+            document.getElementById('categoryFilter').addEventListener('change', filterProducts);
+            document.getElementById('stockFilter').addEventListener('change', filterProducts);
+            document.getElementById('searchInput').addEventListener('input', debounce(filterProducts, 300));
+            document.getElementById('productForm').addEventListener('submit', handleSubmit);
+            
+            // Load products
+            await loadProducts();
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        async function loadProducts() {
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('seller_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading products:', error);
+                showNotif('Failed to load products', 'error');
+                return;
+            }
+
+            allProducts = data || [];
+            document.getElementById('totalProducts').textContent = allProducts.length;
+            filterProducts();
+        }
+
+        function filterProducts() {
+            const category = document.getElementById('categoryFilter').value;
+            const stock = document.getElementById('stockFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = allProducts.filter(p => {
+                if (category && p.category !== category) return false;
+                if (stock) {
+                    const qty = p.quantity || p.stock || 0;
+                    if (stock === 'low' && qty >= 10) return false;
+                    if (stock === 'medium' && (qty < 10 || qty > 50)) return false;
+                    if (stock === 'good' && qty <= 50) return false;
+                }
+                if (search && !p.name.toLowerCase().includes(search)) return false;
+                return true;
+            });
+
+            renderProducts(filtered);
+        }
+
+        function renderProducts(products) {
+            const grid = document.getElementById('productsGrid');
+            const empty = document.getElementById('emptyState');
+
+            if (products.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            
+            const categoryIcons = {
+                'Grains & Cereals': '🌾',
+                'Vegetables': '🥬',
+                'Fruits': '🍎',
+                'Tubers': '🥔',
+                'Livestock': '🐄',
+                'Dairy & Eggs': '🥚',
+                'Spices & Herbs': '🌿'
+            };
+
+            grid.innerHTML = products.map(p => {
+                const qty = p.quantity || p.stock || 0;
+                let stockClass = 'stock-good';
+                if (qty < 10) stockClass = 'stock-low';
+                else if (qty < 50) stockClass = 'stock-medium';
+
+                const discount = p.compare_price ? Math.round(((p.compare_price - p.price) / p.compare_price) * 100) : 0;
+
+                return `
+                    <div class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition group">
+                        <div class="relative">
+                            <img src="${p.image_url || p.image || 'https://via.placeholder.com/300x200'}" 
+                                 alt="${p.name}" 
+                                 class="w-full h-48 object-cover">
+                            ${discount > 0 ? `<span class="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">-${discount}%</span>` : ''}
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                <button onclick="editProduct('${p.id}')" class="bg-white text-gray-800 px-3 py-2 rounded-lg font-medium hover:bg-gray-100">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button onclick="deleteProduct('${p.id}')" class="bg-red-500 text-white px-3 py-2 rounded-lg font-medium hover:bg-red-600">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="category-badge bg-green-100 text-green-800">
+                                    ${categoryIcons[p.category] || '📦'} ${p.category || 'Other'}
+                                </span>
+                                ${p.bulk_price ? '<span class="category-badge bg-blue-100 text-blue-800"><i class="fas fa-boxes"></i> Bulk</span>' : ''}
+                            </div>
+                            <h3 class="font-semibold text-gray-900 mb-1">${p.name}</h3>
+                            <div class="flex items-baseline gap-2 mb-2">
+                                <span class="text-xl font-bold text-primary">₦${Number(p.price).toLocaleString()}</span>
+                                ${p.compare_price ? `<span class="text-sm text-gray-400 line-through">₦${Number(p.compare_price).toLocaleString()}</span>` : ''}
+                                <span class="text-xs text-gray-500">/ ${p.unit || 'piece'}</span>
+                            </div>
+                            ${p.bulk_price ? `<p class="text-xs text-blue-600 mb-2"><i class="fas fa-tags mr-1"></i>Bulk: ₦${Number(p.bulk_price).toLocaleString()} (min. ${p.bulk_min_qty || 1})</p>` : ''}
+                            <div class="flex items-center justify-between">
+                                <span class="stock-badge ${stockClass}">${qty} ${p.unit || 'units'}</span>
+                                ${p.harvest_date ? `<span class="text-xs text-gray-500"><i class="fas fa-calendar mr-1"></i>${new Date(p.harvest_date).toLocaleDateString()}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openModal(product = null) {
+            document.getElementById('modalTitle').textContent = product ? 'Edit Farm Product' : 'Add Farm Product';
+            document.getElementById('submitText').textContent = product ? 'Update Product' : 'Add Product';
+            
+            if (product) {
+                document.getElementById('productId').value = product.id;
+                document.getElementById('productName').value = product.name || '';
+                document.getElementById('productCategory').value = product.category || '';
+                document.getElementById('productImage').value = product.image_url || product.image || '';
+                document.getElementById('productPrice').value = product.price || '';
+                document.getElementById('comparePrice').value = product.compare_price || '';
+                document.getElementById('productStock').value = product.quantity || product.stock || 0;
+                document.getElementById('productUnit').value = product.unit || 'piece';
+                document.getElementById('harvestDate').value = product.harvest_date || '';
+                document.getElementById('productDesc').value = product.description || '';
+                
+                if (product.bulk_price) {
+                    document.getElementById('hasBulkPrice').checked = true;
+                    document.getElementById('bulkMinQty').value = product.bulk_min_qty || '';
+                    document.getElementById('bulkPrice').value = product.bulk_price || '';
+                    document.getElementById('bulkPricingSection').classList.remove('hidden');
+                }
+                
+                previewImage();
+            } else {
+                document.getElementById('productForm').reset();
+                document.getElementById('productId').value = '';
+                document.getElementById('imagePreview').classList.add('hidden');
+                document.getElementById('bulkPricingSection').classList.add('hidden');
+            }
+
+            document.getElementById('productModal').classList.remove('hidden');
+            document.getElementById('productModal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').classList.add('hidden');
+            document.getElementById('productModal').classList.remove('flex');
+        }
+
+        function previewImage() {
+            const url = document.getElementById('productImage').value;
+            if (url) {
+                document.getElementById('previewImg').src = url;
+                document.getElementById('imagePreview').classList.remove('hidden');
+            } else {
+                document.getElementById('imagePreview').classList.add('hidden');
+            }
+        }
+
+        function toggleBulkPricing() {
+            const section = document.getElementById('bulkPricingSection');
+            if (document.getElementById('hasBulkPrice').checked) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            const productId = document.getElementById('productId').value;
+            const productData = {
+                name: document.getElementById('productName').value,
+                category: document.getElementById('productCategory').value,
+                image_url: document.getElementById('productImage').value,
+                image: document.getElementById('productImage').value,
+                price: parseFloat(document.getElementById('productPrice').value) || 0,
+                compare_price: parseFloat(document.getElementById('comparePrice').value) || null,
+                quantity: parseInt(document.getElementById('productStock').value) || 0,
+                unit: document.getElementById('productUnit').value,
+                harvest_date: document.getElementById('harvestDate').value || null,
+                description: document.getElementById('productDesc').value,
+                seller_id: currentUser.id
+            };
+
+            if (document.getElementById('hasBulkPrice').checked) {
+                productData.is_bulk_available = true;
+                productData.bulk_min_qty = parseInt(document.getElementById('bulkMinQty').value) || null;
+                productData.bulk_price = parseFloat(document.getElementById('bulkPrice').value) || null;
+            }
+
+            let error;
+            if (productId) {
+                const result = await supabase.from('products').update(productData).eq('id', productId);
+                error = result.error;
+            } else {
+                const result = await supabase.from('products').insert([productData]);
+                error = result.error;
+            }
+
+            if (error) {
+                console.error('Error saving product:', error);
+                showNotif('Failed to save product: ' + error.message, 'error');
+            } else {
+                showNotif(productId ? 'Product updated!' : 'Product added!', 'success');
+                closeModal();
+                await loadProducts();
+            }
+        }
+
+        async function editProduct(id) {
+            const product = allProducts.find(p => p.id === id);
+            if (product) openModal(product);
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm('Are you sure you want to delete this product?')) return;
+
+            const { error } = await supabase.from('products').delete().eq('id', id);
+            if (error) {
+                showNotif('Failed to delete product', 'error');
+            } else {
+                showNotif('Product deleted', 'success');
+                await loadProducts();
+            }
+        }
+
+        function showNotif(message, type = 'success') {
+            const notif = document.getElementById('notification');
+            const icon = document.getElementById('notifIcon');
+            const text = document.getElementById('notifText');
+
+            icon.innerHTML = type === 'success' 
+                ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
+                : '<i class="fas fa-exclamation-circle text-red-500 text-xl"></i>';
+            text.textContent = message;
+            notif.classList.add('show');
+
+            setTimeout(() => notif.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

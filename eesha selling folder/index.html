@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Portal - EeshaMart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#FBBF24',
+                        'dark-blue': '#0F172A',
+                        farmer: '#059669',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0F172A 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+        .seller-card {
+            transition: all 0.3s ease;
+        }
+        .seller-card:hover {
+            transform: translateY(-8px);
+        }
+        .seller-card.merchant {
+            border: 3px solid transparent;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(135deg, #FBBF24, #F59E0B) border-box;
+        }
+        .seller-card.farmer {
+            border: 3px solid transparent;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(135deg, #059669, #10B981) border-box;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <svg viewBox="0 0 60 50" xmlns="http://www.w3.org/2000/svg" width="50" height="42">
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#FBBF24"/>
+                            <stop offset="100%" stop-color="#F59E0B"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M30,5 A20,20 0 1,0 30,45 A14,14 0 1,1 30,5" fill="url(#logoGrad)"/>
+                </svg>
+                <span class="text-3xl font-bold text-white">EeshaMart</span>
+            </div>
+            <h1 class="text-4xl font-bold text-white mb-3">Seller Portal</h1>
+            <p class="text-gray-400 text-lg">Choose your seller type to get started</p>
+        </div>
+
+        <!-- Seller Type Cards -->
+        <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <!-- Merchant Card -->
+            <a href="merchant/index.html" class="seller-card merchant rounded-2xl p-8 block text-center">
+                <div class="w-20 h-20 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-store text-4xl text-yellow-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Merchant</h2>
+                <p class="text-gray-600 mb-4">Sell electronics, fashion, home goods, and more</p>
+                <div class="flex flex-wrap justify-center gap-2 mb-6">
+                    <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Electronics</span>
+                    <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Fashion</span>
+                    <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Home & Living</span>
+                    <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Beauty</span>
+                </div>
+                <div class="text-primary font-semibold">
+                    Go to Merchant Dashboard <i class="fas fa-arrow-right ml-2"></i>
+                </div>
+            </a>
+
+            <!-- Farmer Card -->
+            <a href="farmers/index.html" class="seller-card farmer rounded-2xl p-8 block text-center">
+                <div class="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-seedling text-4xl text-green-600"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Farmer</h2>
+                <p class="text-gray-600 mb-4">Sell fresh produce, grains, livestock, and more</p>
+                <div class="flex flex-wrap justify-center gap-2 mb-6">
+                    <span class="px-3 py-1 bg-green-50 rounded-full text-sm text-green-700">🌾 Grains</span>
+                    <span class="px-3 py-1 bg-green-50 rounded-full text-sm text-green-700">🥬 Vegetables</span>
+                    <span class="px-3 py-1 bg-green-50 rounded-full text-sm text-green-700">🍎 Fruits</span>
+                    <span class="px-3 py-1 bg-green-50 rounded-full text-sm text-green-700">🥔 Tubers</span>
+                </div>
+                <div class="text-farmer font-semibold">
+                    Go to Farmer Dashboard <i class="fas fa-arrow-right ml-2"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Not a seller yet? -->
+        <div class="text-center">
+            <p class="text-gray-400 mb-4">Don't have a seller account yet?</p>
+            <div class="flex justify-center gap-4">
+                <a href="merchant/signup.html" class="px-6 py-3 border-2 border-primary text-primary rounded-xl font-semibold hover:bg-primary hover:text-dark-blue transition">
+                    <i class="fas fa-store mr-2"></i>
+                    Register as Merchant
+                </a>
+                <a href="farmers/signup.html" class="px-6 py-3 border-2 border-farmer text-farmer rounded-xl font-semibold hover:bg-farmer hover:text-white transition">
+                    <i class="fas fa-seedling mr-2"></i>
+                    Register as Farmer
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-12 text-gray-500 text-sm">
+            <p>&copy; 2025 EeshaMart. All rights reserved.</p>
+            <p class="mt-2">
+                <a href="../index.html" class="text-primary hover:underline">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Main Store
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-redirect if already logged in
+        document.addEventListener('DOMContentLoaded', async () => {
+            const supabase = window.supabase;
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.user) {
+                // Check seller type and redirect
+                const { data: seller } = await supabase
+                    .from('sellers')
+                    .select('business_type')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (seller?.business_type === 'FARMER') {
+                    window.location.href = 'farmers/index.html';
+                } else {
+                    window.location.href = 'merchant/index.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sellers Progress - EeshaMart Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { primary: '#f97316', secondary: '#1e293b' } } }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        .sidebar { width: 260px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #94a3b8; text-decoration: none; transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(249, 115, 22, 0.1); color: #f97316; border-left-color: #f97316; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+        .seller-card { transition: all 0.3s ease; }
+        .seller-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .progress-bar { transition: width 0.5s ease; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold">EeshaMart</h1>
+                    <p class="text-gray-400 text-sm">Admin Dashboard</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="py-4">
+            <a href="index.html" class="sidebar-link"><i class="fas fa-home w-5"></i><span>Dashboard</span></a>
+            <a href="courses.html" class="sidebar-link"><i class="fas fa-book w-5"></i><span>Courses</span></a>
+            <a href="lessons.html" class="sidebar-link"><i class="fas fa-video w-5"></i><span>Lessons</span></a>
+            <a href="live-sessions.html" class="sidebar-link"><i class="fas fa-broadcast-tower w-5"></i><span>Live Sessions</span></a>
+            <a href="sellers.html" class="sidebar-link active"><i class="fas fa-users w-5"></i><span>Sellers</span></a>
+            <a href="analytics.html" class="sidebar-link"><i class="fas fa-chart-bar w-5"></i><span>Analytics</span></a>
+            <a href="settings.html" class="sidebar-link"><i class="fas fa-cog w-5"></i><span>Settings</span></a>
+            <div class="mt-4 px-5">
+                <button onclick="logout()" class="sidebar-link w-full text-left"><i class="fas fa-sign-out-alt w-5"></i><span>Logout</span></button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content p-6">
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-bars text-gray-600"></i></button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Sellers Progress</h1>
+                    <p class="text-gray-500 text-sm">Track learning progress and certificates</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total Sellers</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalSellers">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-users text-blue-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Active Learners</p>
+                        <p class="text-3xl font-bold text-gray-900" id="activeLearners">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-user-graduate text-green-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Certificates Issued</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalCerts">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-certificate text-orange-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Avg Progress</p>
+                        <p class="text-3xl font-bold text-gray-900" id="avgProgress">0%</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-chart-line text-purple-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4 border border-gray-100">
+            <div class="flex-1 min-w-[200px]">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchInput" placeholder="Search sellers..." 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                           oninput="filterSellers()">
+                </div>
+            </div>
+            <select id="typeFilter" onchange="filterSellers()" class="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500">
+                <option value="">All Types</option>
+                <option value="merchant">Merchants</option>
+                <option value="farmer">Farmers</option>
+            </select>
+            <select id="progressFilter" onchange="filterSellers()" class="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500">
+                <option value="">All Progress</option>
+                <option value="not-started">Not Started</option>
+                <option value="in-progress">In Progress</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+
+        <!-- Sellers Grid -->
+        <div id="sellersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Loaded dynamically -->
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingState" class="text-center py-12">
+            <i class="fas fa-spinner fa-spin text-orange-500 text-3xl mb-3"></i>
+            <p class="text-gray-500">Loading sellers...</p>
+        </div>
+
+        <!-- Empty -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-users text-gray-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No sellers found</h3>
+            <p class="text-gray-500">No sellers match your search criteria</p>
+        </div>
+    </main>
+
+    <!-- Seller Detail Modal -->
+    <div id="sellerModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                        <span class="text-white font-bold text-xl" id="modalInitial">S</span>
+                    </div>
+                    <div>
+                        <h2 id="modalName" class="text-xl font-bold text-gray-900">Seller Name</h2>
+                        <p id="modalEmail" class="text-sm text-gray-500">email@example.com</p>
+                    </div>
+                </div>
+                <button onclick="closeSellerModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-times text-gray-500"></i></button>
+            </div>
+            
+            <div class="p-6">
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="text-center p-4 bg-gray-50 rounded-xl">
+                        <p class="text-2xl font-bold text-gray-900" id="modalEnrolled">0</p>
+                        <p class="text-sm text-gray-500">Enrolled</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-xl">
+                        <p class="text-2xl font-bold text-gray-900" id="modalCompleted">0</p>
+                        <p class="text-sm text-gray-500">Completed</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-xl">
+                        <p class="text-2xl font-bold text-gray-900" id="modalCerts">0</p>
+                        <p class="text-sm text-gray-500">Certificates</p>
+                    </div>
+                </div>
+
+                <!-- Course Progress -->
+                <h3 class="font-semibold text-gray-900 mb-3">Course Progress</h3>
+                <div id="modalCourses" class="space-y-3 mb-6">
+                    <!-- Loaded dynamically -->
+                </div>
+
+                <!-- Certificates -->
+                <h3 class="font-semibold text-gray-900 mb-3">Certificates</h3>
+                <div id="modalCertificates" class="grid grid-cols-2 gap-3">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let allSellers = [];
+        let allEnrollments = [];
+        let allCertificates = [];
+
+        // Auth check
+        (function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (!isLoggedIn) window.location.href = 'login.html';
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => loadData());
+
+        async function loadData() {
+            try {
+                // Load sellers
+                const { data: sellers } = await supabase
+                    .from('sellers')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                allSellers = sellers || [];
+
+                // Load enrollments
+                const { data: enrollments } = await supabase
+                    .from('academy_enrollments')
+                    .select('*, academy_courses(title)');
+                allEnrollments = enrollments || [];
+
+                // Load certificates
+                const { data: certificates } = await supabase
+                    .from('academy_certificates')
+                    .select('*, academy_courses(title)');
+                allCertificates = certificates || [];
+
+                // Update stats
+                document.getElementById('totalSellers').textContent = allSellers.length;
+                
+                const activeSellers = [...new Set(allEnrollments.map(e => e.seller_id))];
+                document.getElementById('activeLearners').textContent = activeSellers.length;
+                
+                document.getElementById('totalCerts').textContent = allCertificates.length;
+
+                // Calculate average progress
+                const avgProg = allEnrollments.length > 0 
+                    ? Math.round(allEnrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / allEnrollments.length)
+                    : 0;
+                document.getElementById('avgProgress').textContent = avgProg + '%';
+
+                renderSellers();
+            } catch (error) {
+                console.error('Error loading data:', error);
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        function renderSellers() {
+            const grid = document.getElementById('sellersGrid');
+            const emptyState = document.getElementById('emptyState');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const typeFilter = document.getElementById('typeFilter').value;
+            const progressFilter = document.getElementById('progressFilter').value;
+
+            let filtered = allSellers;
+
+            if (search) {
+                filtered = filtered.filter(s => 
+                    (s.business_name || '').toLowerCase().includes(search) ||
+                    (s.email || '').toLowerCase().includes(search)
+                );
+            }
+
+            if (typeFilter) {
+                filtered = filtered.filter(s => s.seller_type === typeFilter);
+            }
+
+            // Calculate progress for each seller
+            const sellerProgress = {};
+            allEnrollments.forEach(e => {
+                if (!sellerProgress[e.seller_id]) {
+                    sellerProgress[e.seller_id] = { total: 0, completed: 0 };
+                }
+                sellerProgress[e.seller_id].total++;
+                if (e.progress_percentage === 100) {
+                    sellerProgress[e.seller_id].completed++;
+                }
+            });
+
+            if (progressFilter) {
+                filtered = filtered.filter(s => {
+                    const prog = sellerProgress[s.id] || { total: 0, completed: 0 };
+                    if (progressFilter === 'not-started') return prog.total === 0;
+                    if (progressFilter === 'in-progress') return prog.total > 0 && prog.completed < prog.total;
+                    if (progressFilter === 'completed') return prog.completed > 0;
+                    return true;
+                });
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = filtered.map(seller => {
+                const prog = sellerProgress[seller.id] || { total: 0, completed: 0 };
+                const certCount = allCertificates.filter(c => c.seller_id === seller.id).length;
+                const avgProgress = prog.total > 0 ? Math.round((prog.completed / prog.total) * 100) : 0;
+
+                return `
+                <div class="seller-card bg-white rounded-2xl border border-gray-100 p-5 cursor-pointer" onclick="openSellerModal('${seller.id}')">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                            <span class="text-white font-bold text-lg">${(seller.business_name || 'S').charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-900 truncate">${seller.business_name || 'Unknown'}</h3>
+                            <p class="text-sm text-gray-500 truncate">${seller.email || 'No email'}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded-full ${seller.seller_type === 'farmer' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}">
+                            ${seller.seller_type || 'merchant'}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex items-center justify-between text-sm mb-1">
+                                <span class="text-gray-500">Overall Progress</span>
+                                <span class="font-medium text-orange-500">${avgProgress}%</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="progress-bar h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full" style="width: ${avgProgress}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-500"><i class="fas fa-book mr-1"></i>${prog.total} enrolled</span>
+                            <span class="text-gray-500"><i class="fas fa-certificate mr-1"></i>${certCount} certs</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function filterSellers() {
+            renderSellers();
+        }
+
+        async function openSellerModal(sellerId) {
+            const seller = allSellers.find(s => s.id === sellerId);
+            if (!seller) return;
+
+            document.getElementById('modalInitial').textContent = (seller.business_name || 'S').charAt(0).toUpperCase();
+            document.getElementById('modalName').textContent = seller.business_name || 'Unknown';
+            document.getElementById('modalEmail').textContent = seller.email || 'No email';
+
+            // Get enrollments for this seller
+            const enrollments = allEnrollments.filter(e => e.seller_id === sellerId);
+            const certificates = allCertificates.filter(c => c.seller_id === sellerId);
+
+            document.getElementById('modalEnrolled').textContent = enrollments.length;
+            document.getElementById('modalCompleted').textContent = enrollments.filter(e => e.progress_percentage === 100).length;
+            document.getElementById('modalCerts').textContent = certificates.length;
+
+            // Render courses
+            const coursesContainer = document.getElementById('modalCourses');
+            if (enrollments.length === 0) {
+                coursesContainer.innerHTML = '<p class="text-gray-500 text-center py-4">No course enrollments yet</p>';
+            } else {
+                coursesContainer.innerHTML = enrollments.map(e => `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                            <i class="fas fa-book text-orange-500"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 truncate">${e.academy_courses?.title || 'Course'}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="flex-1 h-1.5 bg-gray-200 rounded-full">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: ${e.progress_percentage || 0}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-500">${e.progress_percentage || 0}%</span>
+                            </div>
+                        </div>
+                        ${e.progress_percentage === 100 ? '<i class="fas fa-check-circle text-green-500"></i>' : ''}
+                    </div>
+                `).join('');
+            }
+
+            // Render certificates
+            const certsContainer = document.getElementById('modalCertificates');
+            if (certificates.length === 0) {
+                certsContainer.innerHTML = '<p class="text-gray-500 text-center py-4 col-span-2">No certificates earned yet</p>';
+            } else {
+                certsContainer.innerHTML = certificates.map(c => `
+                    <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100">
+                        <div class="flex items-center justify-center mb-2">
+                            <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center">
+                                <i class="fas fa-certificate text-white"></i>
+                            </div>
+                        </div>
+                        <p class="text-sm font-medium text-gray-900 text-center truncate">${c.academy_courses?.title || 'Course'}</p>
+                        <p class="text-xs text-gray-500 text-center mt-1">${new Date(c.issued_at).toLocaleDateString()}</p>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('sellerModal').classList.remove('hidden');
+            document.getElementById('sellerModal').classList.add('flex');
+        }
+
+        function closeSellerModal() {
+            document.getElementById('sellerModal').classList.add('hidden');
+            document.getElementById('sellerModal').classList.remove('flex');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

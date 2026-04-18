@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Eesha Seller Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <script src="../js/loader.js"></script>
+    <script src="../js/protect-seller-route.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f0474a',
+                        secondary: '#2c3e50',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <!-- Include Common Navbar -->
+    <div id="navbar-container"></div>
+
+    <!-- Page Loader -->
+    <div id="loader" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Analytics Dashboard</h1>
+                <div class="flex space-x-4">
+                    <select id="timeRange" class="px-4 py-2 border rounded-lg" aria-label="Select time range">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="365">Last Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Analytics Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="text-blue-600 font-semibold">Total Sales</h3>
+                    <p class="text-2xl font-bold" id="totalSales">$0.00</p>
+                    <p class="text-sm text-blue-600" id="salesChange">+0% vs last period</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="text-green-600 font-semibold">Orders</h3>
+                    <p class="text-2xl font-bold" id="totalOrders">0</p>
+                    <p class="text-sm text-green-600" id="ordersChange">+0% vs last period</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg">
+                    <h3 class="text-yellow-600 font-semibold">Average Order Value</h3>
+                    <p class="text-2xl font-bold" id="avgOrderValue">$0.00</p>
+                    <p class="text-sm text-yellow-600" id="aovChange">+0% vs last period</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <h3 class="text-purple-600 font-semibold">Total Customers</h3>
+                    <p class="text-2xl font-bold" id="totalCustomers">0</p>
+                    <p class="text-sm text-purple-600" id="customersChange">+0% vs last period</p>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Sales Trend -->
+                <div class="bg-white p-4 rounded-lg border">
+                    <h3 class="text-lg font-semibold mb-4">Sales Trend</h3>
+                    <div id="salesChart" class="h-64">
+                        <!-- Chart will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Top Products -->
+                <div class="bg-white p-4 rounded-lg border">
+                    <h3 class="text-lg font-semibold mb-4">Top Products</h3>
+                    <div id="topProducts" class="space-y-4">
+                        <!-- Product list will be rendered here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/load-navbar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loader = document.getElementById('loader');
+            try {
+                // Load navbar and get user data
+                const userData = await loadNavbarWithUserData();
+                if (!userData?.user || !userData?.seller) {
+                    throw new Error('Failed to load user data');
+                }
+                const { user, seller } = userData;
+
+                // Load analytics data
+                await loadAnalytics();
+
+                // Set up event listeners
+                document.getElementById('timeRange').addEventListener('change', loadAnalytics);
+            } catch (error) {
+                console.error('Error initializing analytics page:', error);
+                alert('Failed to load analytics. Please refresh the page.');
+            } finally {
+                if (loader) loader.style.display = 'none';
+            }
+        });
+
+        async function loadAnalytics() {
+            const timeRange = document.getElementById('timeRange').value;
+            const supabase = window.supabase;
+
+            try {
+                // Get date range
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - parseInt(timeRange));
+
+                // Fetch analytics data from Supabase
+                const { data: orderStats, error: statsError } = await supabase
+                    .rpc('get_seller_analytics', {
+                        p_seller_id: (await supabase.auth.getUser()).data.user.id,
+                        p_start_date: startDate.toISOString(),
+                        p_end_date: endDate.toISOString()
+                    });
+
+                if (statsError) throw statsError;
+
+                // Update UI with analytics data
+                if (orderStats) {
+                    document.getElementById('totalSales').textContent = `$${orderStats.total_sales.toFixed(2)}`;
+                    document.getElementById('totalOrders').textContent = orderStats.total_orders;
+                    document.getElementById('avgOrderValue').textContent = `$${(orderStats.total_sales / orderStats.total_orders || 0).toFixed(2)}`;
+                    document.getElementById('totalCustomers').textContent = orderStats.unique_customers;
+
+                    // Update change percentages
+                    // You would need to implement the logic to calculate period-over-period changes
+                }
+
+                // Fetch and display top products
+                const { data: topProducts, error: productsError } = await supabase
+                    .rpc('get_top_products', {
+                        p_seller_id: (await supabase.auth.getUser()).data.user.id,
+                        p_limit: 5
+                    });
+
+                if (productsError) throw productsError;
+
+                // Update top products list
+                const topProductsContainer = document.getElementById('topProducts');
+                topProductsContainer.innerHTML = topProducts
+                    .map(product => `
+                        <div class="flex justify-between items-center p-2 hover:bg-gray-50">
+                            <div>
+                                <h4 class="font-medium">${product.name}</h4>
+                                <p class="text-sm text-gray-600">${product.units_sold} units sold</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-medium">$${product.revenue.toFixed(2)}</p>
+                                <p class="text-sm text-gray-600">${product.percentage}% of sales</p>
+                            </div>
+                        </div>
+                    `)
+                    .join('');
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                alert('Failed to load analytics data. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

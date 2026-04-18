@@ -1,0 +1,10 @@
+<svg width="380" height="90" viewBox="0 0 380 90" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1A1A1A"/>
+      <stop offset="100%" stop-color="#333333"/>
+    </linearGradient>
+  </defs>
+  <text x="20" y="65" font-family="Arial, sans-serif" font-size="68" font-weight="900" fill="url(#g1)" letter-spacing="-1">eesha</text>
+  <path d="M 85 68 Q 180 78, 340 68 L 330 58" stroke="#FF9900" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Eesha Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <!-- Main Container -->
+    <div class="w-full max-w-md">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <img src="../Eesha buying folder/shared/image1.svg" alt="Eesha Logo" class="mx-auto h-20">
+            <h2 class="mt-4 text-3xl font-bold text-gray-900">Create your account</h2>
+            <p class="mt-2 text-gray-600">Get started with Eesha Shop</p>
+        </div>
+
+        <!-- Signup Card -->
+        <div class="bg-white shadow-xl rounded-lg p-8">
+            <!-- Email/Password Form -->
+            <form id="signupForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                    <input type="email" id="email" name="email" required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" required minlength="6"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                </div>
+
+                <button type="submit" id="signupButton"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-[#f0474a] hover:bg-[#e43d40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f0474a]">
+                    <span>Sign up</span>
+                    <i class="fas fa-spinner loading ml-2 hidden"></i>
+                </button>
+                
+                <!-- Message Area -->
+                <div id="messageArea" class="hidden text-sm text-center"></div>
+            </form>
+
+            <!-- Divider -->
+            <div class="mt-6">
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Google Sign In -->
+            <div class="mt-6">
+                <button id="googleSignIn" 
+                        class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f0474a]">
+                    <i class="fab fa-google mr-2"></i>
+                    Sign up with Google
+                </button>
+            </div>
+
+            <!-- Sign In Link -->
+            <p class="mt-6 text-center text-sm text-gray-600">
+                Already have an account? 
+                <a href="login.html" class="font-medium text-[#f0474a] hover:underline">Sign in</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Use centralized Supabase client (avoid redeclaring `supabase`)
+        const supabaseClient = window.supabaseClient || window.supabase || null;
+
+        // Elements
+        const signupForm = document.getElementById('signupForm');
+        const signupButton = document.getElementById('signupButton');
+        const googleSignIn = document.getElementById('googleSignIn');
+        const messageArea = document.getElementById('messageArea');
+        const loadingIcon = signupButton.querySelector('.loading');
+
+        // Helper Functions
+        function showMessage(message, isError = true) {
+            messageArea.textContent = message;
+            messageArea.classList.remove('hidden', 'text-red-600', 'text-green-600');
+            messageArea.classList.add(isError ? 'text-red-600' : 'text-green-600');
+        }
+
+        function hideMessage() {
+            messageArea.classList.add('hidden');
+        }
+
+        function setLoading(isLoading) {
+            loadingIcon.classList.toggle('hidden', !isLoading);
+            signupButton.disabled = isLoading;
+            googleSignIn.disabled = isLoading;
+        }
+
+        // Email/Password Sign Up
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await performSignUp();
+        });
+
+        // Google Sign Up
+        googleSignIn.addEventListener('click', async () => {
+            hideMessage();
+            
+            // No pre-check needed. Supabase handles creating the user if they don't exist.
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+            });
+
+            if (error) {
+                showMessage('Failed to sign up with Google');
+            }
+        });
+
+        // Defensive: use a click handler and prevent default GET submission
+        async function performSignUp() {
+            hideMessage();
+            setLoading(true);
+
+            if (!supabaseClient) {
+                showMessage('Authentication not initialized. Try reloading the page.');
+                setLoading(false);
+                return;
+            }
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                // Step 1: Check if the user already exists by attempting to sign in
+                const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+                if (signInData?.user) {
+                    // User already exists and password is correct
+                    showMessage('You already have an account! Please log in instead.', true);
+                    return;
+                }
+
+                // If sign-in failed, it could be: user doesn't exist, wrong password, or other error
+                // Try to determine if it's a case where the user exists but password is wrong
+                const signInMsg = (signInError?.message || '').toLowerCase();
+                if (signInMsg.includes('invalid login') || signInMsg.includes('wrong password')) {
+                    // User exists with this email but password is wrong
+                    showMessage('A user with this email already exists. Please log in or reset your password.', true);
+                    return;
+                }
+
+                // Step 2: If sign-in failed for other reasons (likely user doesn't exist), proceed with signup
+                const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({ email, password });
+
+                if (signUpError) {
+                    throw signUpError;
+                }
+
+                // Success: New user registered, verification email should be sent
+                showMessage('Sign-up successful! Please check your email for a verification link.', false);
+                signupForm.reset();
+
+            } catch (err) {
+                showMessage(err.message || 'Failed to sign up');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        signupButton.type = 'button';
+        signupButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await performSignUp();
+        });
+    </script>
+</body>
+</html>

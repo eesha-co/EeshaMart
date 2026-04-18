@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .eeshpay-logo { width: 480px; transition: all 0.3s ease; }
+  .eeshpay-logo:hover { 
+    transform: translateY(-3px); 
+    filter: drop-shadow(0 6px 12px rgba(251, 191, 36, 0.3)); 
+  }
+  .arrow { 
+    stroke-dasharray: 380; 
+    stroke-dashoffset: 380; 
+    animation: draw 5s ease-out forwards; 
+  }
+  .coin { 
+    animation: spin 2s linear infinite; 
+    transform-origin: 40px 40px; 
+  }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<svg
+      width={350}
+      height={350}
+      viewBox={viewBox}
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#0F172A" />
+          <stop offset="100%" stopColor="#1E293B" />
+        </linearGradient>
+        <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FBBF24" />
+          <stop offset="100%" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+
+      {/* Spinning Coin Icon */}
+      <g className={animate ? "animate-spin" : ""} style={{ transformOrigin: "40px 40px" }}>
+        <circle cx="40" cy="40" r="18" fill="none" stroke="url(#gold)" strokeWidth="3" />
+        <text x="32" y="48" fontSize="16" fill="url(#gold)" fontWeight="bold">
+          ₦
+        </text>
+      </g>
+
+      {/* Eeshpay Text */}
+      <text
+        x="80"
+        y="65"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontSize="68"
+        fontWeight="900"
+        fill="url(#g1)"
+        letterSpacing="-0.5"
+      >
+        Eeshapay
+      </text>
+
+      {/* Flowing Arrow */}
+      <path
+        d="M 150 68 Q 260 78, 440 68 L 430 58"
+        stroke="url(#gold)"
+        strokeWidth="4.5"
+        fill="none"
+        strokeLinecap="round"
+        className={animate ? "animate-draw-arrow" : ""}
+      />
+    </svg>
+</body>
+</html>

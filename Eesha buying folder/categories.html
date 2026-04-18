@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categories — EeshaMart</title>
+    <meta name="description" content="Browse all categories on EeshaMart - Nigeria's #1 Marketplace">
+    
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind & Supabase -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { 
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            background: #ffffff;
+            color: #1f2937;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f5f5f5; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        .category-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+        .category-card { transition: all 0.3s ease; }
+        
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+        .product-card { transition: all 0.3s ease; }
+        
+        .filter-btn.active { background: #f97316; color: white; border-color: #f97316; }
+    </style>
+</head>
+
+<body class="min-h-screen pb-20 lg:pb-0">
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50 border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-3 lg:px-4">
+            <div class="flex items-center justify-between h-14 lg:h-16">
+                <!-- Logo -->
+                <a href="../index.html" class="flex items-center gap-2">
+                    <div class="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center">
+                        <svg viewBox="0 0 60 60" class="w-full h-full">
+                            <defs>
+                                <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#fbbf24"/>
+                                    <stop offset="50%" stop-color="#f59e0b"/>
+                                    <stop offset="100%" stop-color="#d97706"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" fill="url(#headerLogoGrad)"/>
+                            <path d="M18 11 Q18 2 30 2 Q42 2 42 11" fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <span class="text-base lg:text-lg font-bold text-gray-900">EeshaMart</span>
+                </a>
+
+                <!-- Search Bar -->
+                <div class="flex-1 max-w-xl mx-4 hidden md:flex items-center bg-gray-100 rounded-lg px-3 py-2">
+                    <i class="fas fa-search text-gray-400 mr-2 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Search products..." class="flex-1 bg-transparent outline-none text-sm">
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center gap-2 lg:gap-4">
+                    <a href="cart.html" class="relative p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-shopping-cart text-gray-600"></i>
+                        <span id="cartCount" class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
+                    </a>
+                    <a id="accountBtn" href="login.html" class="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-1">
+                        <div class="relative">
+                            <i class="fas fa-user text-gray-600"></i>
+                            <i id="loggedInCheck" class="fas fa-check-circle text-green-500 text-[8px] absolute -bottom-0.5 -right-0.5 hidden"></i>
+                        </div>
+                        <span class="hidden lg:inline text-sm text-gray-700">Account</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-3 lg:px-4 py-4 lg:py-6">
+        <!-- Page Title -->
+        <div class="mb-4 lg:mb-6">
+            <h1 class="text-xl lg:text-2xl font-bold text-gray-900">All Categories</h1>
+            <p class="text-gray-500 text-xs lg:text-sm mt-1">Browse products by category</p>
+        </div>
+
+        <!-- Categories Grid -->
+        <section class="mb-6 lg:mb-8">
+            <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 lg:gap-4" id="categoriesGrid">
+                <!-- All Categories -->
+                <button onclick="filterByCategory('')" class="category-card filter-btn active bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-th-large text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">All</p>
+                </button>
+                <!-- Phones -->
+                <button onclick="filterByCategory('phones')" data-category="phones" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-mobile-alt text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Phones</p>
+                </button>
+                <!-- Electronics -->
+                <button onclick="filterByCategory('electronics')" data-category="electronics" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-laptop text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Electronics</p>
+                </button>
+                <!-- Fashion -->
+                <button onclick="filterByCategory('fashion')" data-category="fashion" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-tshirt text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Fashion</p>
+                </button>
+                <!-- Farm Fresh -->
+                <button onclick="filterByCategory('farm')" data-category="farm" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-leaf text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Farm Fresh</p>
+                </button>
+                <!-- Home -->
+                <button onclick="filterByCategory('home')" data-category="home" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-home text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Home</p>
+                </button>
+                <!-- Beauty -->
+                <button onclick="filterByCategory('beauty')" data-category="beauty" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-heart text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Beauty</p>
+                </button>
+                <!-- Baby -->
+                <button onclick="filterByCategory('baby')" data-category="baby" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-baby text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Baby</p>
+                </button>
+                <!-- Sports -->
+                <button onclick="filterByCategory('sports')" data-category="sports" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-futbol text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Sports</p>
+                </button>
+                <!-- Groceries -->
+                <button onclick="filterByCategory('groceries')" data-category="groceries" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-shopping-basket text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Groceries</p>
+                </button>
+                <!-- Health -->
+                <button onclick="filterByCategory('health')" data-category="health" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-pills text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Health</p>
+                </button>
+                <!-- Automotive -->
+                <button onclick="filterByCategory('automotive')" data-category="automotive" class="category-card filter-btn bg-white rounded-xl p-3 lg:p-4 text-center border border-gray-200 cursor-pointer">
+                    <div class="w-10 h-10 lg:w-14 lg:h-14 mx-auto bg-gray-100 rounded-xl flex items-center justify-center mb-2 lg:mb-3">
+                        <i class="fas fa-car text-gray-600 text-lg lg:text-xl"></i>
+                    </div>
+                    <p class="font-medium text-gray-700 text-xs lg:text-sm">Automotive</p>
+                </button>
+            </div>
+        </section>
+
+        <!-- Filters Bar -->
+        <section class="bg-gray-50 rounded-xl p-3 lg:p-4 mb-4 lg:mb-6">
+            <div class="flex flex-wrap items-center gap-2 lg:gap-4">
+                <!-- Sort -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs lg:text-sm text-gray-500">Sort:</span>
+                    <select id="sortSelect" onchange="applyFilters()" class="text-xs lg:text-sm border border-gray-200 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 bg-white">
+                        <option value="newest">Newest</option>
+                        <option value="popular">Popular</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                    </select>
+                </div>
+                <!-- Price Range -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs lg:text-sm text-gray-500">Price:</span>
+                    <select id="priceSelect" onchange="applyFilters()" class="text-xs lg:text-sm border border-gray-200 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 bg-white">
+                        <option value="">All Prices</option>
+                        <option value="0-5000">Under ₦5,000</option>
+                        <option value="5000-10000">₦5,000 - ₦10,000</option>
+                        <option value="10000-50000">₦10,000 - ₦50,000</option>
+                        <option value="50000+">₦50,000+</option>
+                    </select>
+                </div>
+                <!-- Seller Type -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs lg:text-sm text-gray-500">Seller:</span>
+                    <select id="sellerSelect" onchange="applyFilters()" class="text-xs lg:text-sm border border-gray-200 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 bg-white">
+                        <option value="">All Sellers</option>
+                        <option value="merchant">Merchants</option>
+                        <option value="farmer">Farmers</option>
+                    </select>
+                </div>
+                <!-- Results Count -->
+                <div class="ml-auto text-xs lg:text-sm text-gray-500">
+                    <span id="resultsCount">0</span> products found
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Grid -->
+        <section>
+            <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-4">
+                <!-- Products loaded dynamically -->
+            </div>
+            
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-12 hidden">
+                <i class="fas fa-spinner fa-spin text-orange-500 text-2xl mb-3"></i>
+                <p class="text-gray-500 text-sm">Loading products...</p>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-12 hidden">
+                <i class="fas fa-box-open text-gray-300 text-4xl mb-3"></i>
+                <p class="text-gray-500 text-sm">No products found in this category</p>
+                <button onclick="filterByCategory('')" class="mt-3 text-orange-500 text-sm font-medium hover:underline">View all products</button>
+            </div>
+
+            <!-- Load More -->
+            <div id="loadMoreSection" class="text-center mt-6 lg:mt-8 hidden">
+                <button onclick="loadMoreProducts()" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                    Load More Products
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Mobile Navigation (Bottom) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
+        <div class="flex items-center justify-around py-2">
+            <a href="../index.html" class="flex flex-col items-center gap-1 p-2 text-gray-500">
+                <i class="fas fa-home text-lg"></i>
+                <span class="text-xs">Home</span>
+            </a>
+            <a href="categories.html" class="flex flex-col items-center gap-1 p-2 text-orange-500">
+                <i class="fas fa-th-large text-lg"></i>
+                <span class="text-xs font-medium">Categories</span>
+            </a>
+            <a href="#" class="flex flex-col items-center gap-1 p-2 text-gray-500">
+                <i class="fas fa-bolt text-lg"></i>
+                <span class="text-xs">Deals</span>
+            </a>
+            <a href="cart.html" class="flex flex-col items-center gap-1 p-2 text-gray-500 relative">
+                <i class="fas fa-shopping-cart text-lg"></i>
+                <span class="text-xs">Cart</span>
+                <span id="mobileCartCount" class="absolute top-0 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
+            </a>
+            <a id="mobileAccountBtn" href="login.html" class="flex flex-col items-center gap-1 p-2 text-gray-500">
+                <div class="relative">
+                    <i class="fas fa-user text-lg"></i>
+                    <i id="mobileLoggedInCheck" class="fas fa-check-circle text-green-500 text-[8px] absolute -bottom-0.5 -right-0.5 hidden"></i>
+                </div>
+                <span class="text-xs">Account</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
+            <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-lock text-orange-500 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Sign In Required</h3>
+            <p class="text-gray-500 text-sm mb-4">Please log in to add items to your cart</p>
+            <div class="flex gap-3">
+                <a href="login.html" class="flex-1 bg-gray-900 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-gray-800 transition-colors">
+                    Login
+                </a>
+                <a href="signup.html" class="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-orange-600 transition-colors">
+                    Sign Up
+                </a>
+            </div>
+            <button onclick="closeAuthModal()" class="mt-3 text-gray-500 text-sm hover:text-gray-700">Continue Browsing</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/config/supabase.js"></script>
+    <script>
+        const supabaseClient = window.supabase;
+        let currentCategory = '';
+        let currentSearch = '';
+        let currentSort = 'newest';
+        let currentPrice = '';
+        let currentSeller = '';
+        let products = [];
+        let page = 0;
+        const pageSize = 20;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuthState();
+            
+            // Get parameters from URL
+            const params = new URLSearchParams(window.location.search);
+            const cat = params.get('category');
+            const search = params.get('search');
+            
+            // Set search input value if search param exists
+            if (search) {
+                currentSearch = search;
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) searchInput.value = search;
+                updatePageTitle(search, '');
+            }
+            
+            if (cat) {
+                filterByCategory(cat);
+            } else {
+                loadProducts();
+            }
+        });
+        
+        // Update page title based on filters
+        function updatePageTitle(search, category) {
+            const titleEl = document.querySelector('main h1');
+            const descEl = document.querySelector('main h1 + p');
+            
+            if (search && category) {
+                titleEl.textContent = `"${search}" in ${category}`;
+                descEl.textContent = 'Search results';
+            } else if (search) {
+                titleEl.textContent = `Search: "${search}"`;
+                descEl.textContent = 'Showing search results';
+            } else if (category) {
+                titleEl.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                descEl.textContent = 'Browse products in this category';
+            } else {
+                titleEl.textContent = 'All Categories';
+                descEl.textContent = 'Browse products by category';
+            }
+        }
+
+        // Auth State
+        async function checkAuthState() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const accountBtn = document.getElementById('accountBtn');
+                const mobileAccountBtn = document.getElementById('mobileAccountBtn');
+                const loggedInCheck = document.getElementById('loggedInCheck');
+                const mobileLoggedInCheck = document.getElementById('mobileLoggedInCheck');
+                
+                if (session?.user) {
+                    accountBtn.href = 'profile.html';
+                    mobileAccountBtn.href = 'profile.html';
+                    loggedInCheck.classList.remove('hidden');
+                    mobileLoggedInCheck.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+            }
+        }
+
+        // Filter by Category
+        function filterByCategory(category) {
+            currentCategory = category;
+            page = 0;
+            products = [];
+            
+            // Clear search when changing category
+            currentSearch = '';
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+            
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.category === category || (category === '' && !btn.dataset.category)) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Update URL
+            const url = new URL(window.location);
+            if (category) {
+                url.searchParams.set('category', category);
+            } else {
+                url.searchParams.delete('category');
+            }
+            url.searchParams.delete('search');
+            window.history.replaceState({}, '', url);
+            
+            // Update page title
+            updatePageTitle('', category);
+            
+            loadProducts();
+        }
+
+        // Apply Filters
+        function applyFilters() {
+            currentSort = document.getElementById('sortSelect').value;
+            currentPrice = document.getElementById('priceSelect').value;
+            currentSeller = document.getElementById('sellerSelect').value;
+            page = 0;
+            products = [];
+            loadProducts();
+        }
+
+        // Load Products
+        async function loadProducts() {
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const productsGrid = document.getElementById('productsGrid');
+            
+            loadingState.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            
+            try {
+                let query = supabaseClient
+                    .from('products')
+                    .select('*, sellers(name, seller_type)', { count: 'exact' });
+                
+                // Search filter - search in name and description
+                if (currentSearch) {
+                    query = query.or(`name.ilike.%${currentSearch}%,description.ilike.%${currentSearch}%,category.ilike.%${currentSearch}%`);
+                }
+                
+                // Category filter
+                if (currentCategory) {
+                    query = query.eq('category', currentCategory);
+                }
+                
+                // Price filter
+                if (currentPrice) {
+                    if (currentPrice === '50000+') {
+                        query = query.gte('price', 50000);
+                    } else {
+                        const [min, max] = currentPrice.split('-');
+                        query = query.gte('price', parseInt(min)).lte('price', parseInt(max));
+                    }
+                }
+                
+                // Seller type filter
+                if (currentSeller) {
+                    // This requires a join, handled differently
+                }
+                
+                // Sort
+                switch (currentSort) {
+                    case 'newest':
+                        query = query.order('created_at', { ascending: false });
+                        break;
+                    case 'popular':
+                        query = query.order('views', { ascending: false });
+                        break;
+                    case 'price-low':
+                        query = query.order('price', { ascending: true });
+                        break;
+                    case 'price-high':
+                        query = query.order('price', { ascending: false });
+                        break;
+                }
+                
+                query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+                
+                const { data, count, error } = await query;
+                
+                if (error) throw error;
+                
+                document.getElementById('resultsCount').textContent = count || 0;
+                
+                if (data && data.length > 0) {
+                    products = [...products, ...data];
+                    renderProducts(data);
+                    
+                    // Show load more if there are more products
+                    const loadMoreSection = document.getElementById('loadMoreSection');
+                    if (products.length < count) {
+                        loadMoreSection.classList.remove('hidden');
+                    } else {
+                        loadMoreSection.classList.add('hidden');
+                    }
+                } else if (products.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    productsGrid.innerHTML = '';
+                }
+                
+            } catch (error) {
+                console.error('Error loading products:', error);
+                emptyState.classList.remove('hidden');
+            } finally {
+                loadingState.classList.add('hidden');
+            }
+        }
+
+        // Render Products
+        function renderProducts(data) {
+            const productsGrid = document.getElementById('productsGrid');
+            
+            if (page === 0) {
+                productsGrid.innerHTML = '';
+            }
+            
+            data.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'product-card bg-white rounded-xl border border-gray-100 overflow-hidden cursor-pointer';
+                card.onclick = () => window.location.href = `product.html?id=${product.id}`;
+                
+                const sellerType = product.sellers?.seller_type;
+                const sellerBadge = sellerType === 'farmer' 
+                    ? '<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-full">Farm Fresh</span>'
+                    : '';
+                
+                const discount = product.discount_percentage || 0;
+                const originalPrice = discount > 0 ? product.price / (1 - discount/100) : null;
+                
+                card.innerHTML = `
+                    <div class="relative">
+                        <img src="${product.images?.[0] || 'https://via.placeholder.com/300'}" 
+                             alt="${product.name}" 
+                             class="w-full h-28 lg:h-40 object-cover">
+                        ${discount > 0 ? `<span class="absolute top-2 left-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">-${discount}%</span>` : ''}
+                        <button onclick="event.stopPropagation(); toggleWishlist(${product.id})" class="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow hover:bg-gray-50">
+                            <i class="far fa-heart text-gray-400 text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="p-2 lg:p-3">
+                        <div class="flex items-center gap-1 mb-1">
+                            ${sellerBadge}
+                        </div>
+                        <h3 class="text-xs lg:text-sm font-medium text-gray-900 line-clamp-2 mb-1">${product.name}</h3>
+                        <div class="flex items-center gap-1 mb-2">
+                            <span class="text-sm lg:text-base font-bold text-gray-900">₦${product.price?.toLocaleString()}</span>
+                            ${originalPrice ? `<span class="text-[10px] text-gray-400 line-through">₦${originalPrice.toFixed(0)}</span>` : ''}
+                        </div>
+                        <button onclick="event.stopPropagation(); addToCart(${product.id})" class="w-full bg-orange-500 text-white py-1.5 lg:py-2 rounded-lg text-xs font-medium hover:bg-orange-600 transition-colors">
+                            Add to Cart
+                        </button>
+                    </div>
+                `;
+                
+                productsGrid.appendChild(card);
+            });
+        }
+
+        // Load More Products
+        function loadMoreProducts() {
+            page++;
+            loadProducts();
+        }
+
+        // Add to Cart
+        async function addToCart(productId) {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                if (!session?.user) {
+                    document.getElementById('authModal').classList.remove('hidden');
+                    document.getElementById('authModal').classList.add('flex');
+                    return;
+                }
+                
+                // Check if item exists in cart
+                const { data: existing } = await supabaseClient
+                    .from('cart_items')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .eq('product_id', productId)
+                    .single();
+                
+                if (existing) {
+                    await supabaseClient
+                        .from('cart_items')
+                        .update({ quantity: existing.quantity + 1 })
+                        .eq('id', existing.id);
+                } else {
+                    await supabaseClient
+                        .from('cart_items')
+                        .insert([{ user_id: session.user.id, product_id: productId, quantity: 1 }]);
+                }
+                
+                updateCartCount();
+                showNotification('Added to cart!');
+                
+            } catch (error) {
+                console.error('Add to cart error:', error);
+                showNotification('Error adding to cart', 'error');
+            }
+        }
+
+        // Toggle Wishlist
+        async function toggleWishlist(productId) {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                if (!session?.user) {
+                    document.getElementById('authModal').classList.remove('hidden');
+                    document.getElementById('authModal').classList.add('flex');
+                    return;
+                }
+                
+                // Toggle wishlist logic here
+                showNotification('Added to wishlist!');
+                
+            } catch (error) {
+                console.error('Wishlist error:', error);
+            }
+        }
+
+        // Update Cart Count
+        async function updateCartCount() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.user) return;
+                
+                const { count } = await supabaseClient
+                    .from('cart_items')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', session.user.id);
+                
+                document.getElementById('cartCount').textContent = count || 0;
+                document.getElementById('mobileCartCount').textContent = count || 0;
+            } catch (error) {
+                console.error('Cart count error:', error);
+            }
+        }
+
+        // Close Auth Modal
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('authModal').classList.remove('flex');
+        }
+
+        // Show Notification
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-20 right-4 px-4 py-2 rounded-lg text-sm font-medium z-50 ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.remove(), 2000);
+        }
+        
+        // ===== Search Functions =====
+        function handleSearchKeypress(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        }
+        
+        function performSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim();
+            
+            currentSearch = query;
+            currentCategory = '';
+            page = 0;
+            products = [];
+            
+            // Update URL
+            const url = new URL(window.location);
+            if (query) {
+                url.searchParams.set('search', query);
+            } else {
+                url.searchParams.delete('search');
+            }
+            url.searchParams.delete('category');
+            window.history.replaceState({}, '', url);
+            
+            // Update title
+            updatePageTitle(query, '');
+            
+            // Reset category buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (!btn.dataset.category) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            loadProducts();
+        }
+    </script>
+</body>
+</html>

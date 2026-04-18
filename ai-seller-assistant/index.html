@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eeshamart Seller Assistant - AI-Powered Business Advisor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <i class="fas fa-store"></i>
+                        <span class="sparkle"><i class="fas fa-sparkles"></i></span>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Eeshamart Seller Assistant</h1>
+                        <p><i class="fas fa-bolt"></i> <span id="model-name">Qwen + VLM</span> • AI-Powered Business Advisor</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <span class="status-badge" id="status-badge">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Online</span>
+                    </span>
+                    <button class="clear-btn" onclick="clearConversation()" title="Clear conversation">
+                        <i class="fas fa-refresh"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <div class="messages-container" id="messages-container">
+                <!-- Messages will be inserted here -->
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions" id="quick-actions">
+                <p class="quick-actions-title">Quick Actions:</p>
+                <div class="quick-actions-grid">
+                    <button class="quick-action-btn branding" onclick="sendQuickAction('branding')">
+                        <i class="fas fa-tag"></i>
+                        <span>Build My Brand</span>
+                    </button>
+                    <button class="quick-action-btn packaging" onclick="sendQuickAction('packaging')">
+                        <i class="fas fa-box"></i>
+                        <span>Packaging Advice</span>
+                    </button>
+                    <button class="quick-action-btn pricing" onclick="sendQuickAction('pricing')">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>Pricing Strategy</span>
+                    </button>
+                    <button class="quick-action-btn listing" onclick="sendQuickAction('listing')">
+                        <i class="fas fa-shopping-bag"></i>
+                        <span>Optimize Listings</span>
+                    </button>
+                    <button class="quick-action-btn growth" onclick="sendQuickAction('growth')">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Grow Sales</span>
+                    </button>
+                    <button class="quick-action-btn photos" onclick="document.getElementById('file-input').click()">
+                        <i class="fas fa-camera"></i>
+                        <span>Analyze Product</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Image Previews -->
+            <div class="image-previews" id="image-previews" style="display: none;">
+                <p class="previews-title">Attached Images (<span id="image-count">0</span>):</p>
+                <div class="previews-grid" id="previews-grid"></div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <footer class="input-footer">
+            <div class="input-container">
+                <input type="file" id="file-input" accept="image/*,.pdf,.doc,.docx" multiple style="display: none;">
+                <button class="upload-btn" onclick="document.getElementById('file-input').click()" title="Attach image or file">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <input type="text" id="message-input" placeholder="Ask about branding, pricing, packaging... or upload a product photo!" autocomplete="off">
+                <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="input-hint">
+                <span>Press Enter to send • Upload images for product analysis</span>
+                <span class="model-badge" id="model-badge">Qwen + VLM</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Simple Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Main Script -->
+    <script src="app.js"></script>
+</body>
+</html>

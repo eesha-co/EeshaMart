@@ -1,0 +1,152 @@
+<!-- Common Navbar for Seller Dashboard -->
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<header class="bg-white shadow-md fixed w-full top-0 z-50">
+    <nav class="container mx-auto px-4 py-4">
+        <!-- Top Bar with Logo, Title, Profile -->
+        <div class="flex justify-between items-center">
+            <!-- Left: Logo & Title -->
+            <div class="flex items-center gap-3">
+                <a href="../../index.html" class="flex items-center gap-2 group">
+                    <div class="w-10 h-10 flex items-center justify-center">
+                        <svg viewBox="0 0 60 60" class="w-full h-full">
+                            <defs>
+                                <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#fbbf24"/>
+                                    <stop offset="50%" stop-color="#f59e0b"/>
+                                    <stop offset="100%" stop-color="#d97706"/>
+                                </linearGradient>
+                                <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                                  fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                            <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                                  fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                                  fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                            <g transform="translate(52, 8)">
+                                <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                        <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                    </div>
+                </a>
+                <h1 class="text-xl font-bold text-gray-700 border-l pl-4 border-gray-200">Seller Dashboard</h1>
+            </div>
+            <!-- Right: Search, Notifications & Profile -->
+            <div class="flex items-center space-x-6">
+                <!-- Search Bar -->
+                <div class="hidden md:flex items-center bg-gray-100 rounded-lg px-3 py-2 w-64">
+                    <i class="fas fa-search text-gray-400 mr-2"></i>
+                    <input type="text" placeholder="Search..." class="bg-transparent w-full focus:outline-none text-sm">
+                </div>
+                <!-- Notifications -->
+                <button class="relative" aria-label="Notifications">
+                    <i class="fas fa-bell text-gray-600 text-xl"></i>
+                    <span id="notificationCount" class="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </button>
+                <!-- Seller Info & Profile -->
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:block text-right">
+                        <p id="businessName" class="font-semibold text-gray-900">Loading...</p>
+                        <p id="sellerEmail" class="text-sm text-gray-600">Loading...</p>
+                    </div>
+                    <img id="profileImage" class="h-10 w-10 rounded-full bg-gray-200 border-2 border-primary" alt="Profile">
+                    <div class="relative" id="profileDropdown">
+                        <button class="flex items-center space-x-2 focus:outline-none" id="profileBtn" aria-label="Open profile menu">
+                            <i class="fas fa-chevron-down text-gray-600"></i>
+                        </button>
+                        <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden" id="dropdownMenu">
+                            <a href="settings.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-cog mr-2"></i> Settings
+                            </a>
+                            <a href="analytics.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-chart-bar mr-2"></i> Analytics
+                            </a>
+                            <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Navigation Tabs -->
+        <div class="flex space-x-6 mt-6 border-b border-gray-200">
+            <a href="index.html" class="nav-tab" data-page="dashboard">
+                <i class="fas fa-home mr-2"></i>
+                Dashboard
+            </a>
+            <a href="products.html" class="nav-tab" data-page="products">
+                <i class="fas fa-box mr-2"></i>
+                Products
+            </a>
+            <a href="order.html" class="nav-tab" data-page="orders">
+                <i class="fas fa-shopping-cart mr-2"></i>
+                Orders
+            </a>
+            <a href="offers.html" class="nav-tab" data-page="offers">
+                <i class="fas fa-gift mr-2"></i>
+                Offers
+            </a>
+            <a href="analytics.html" class="nav-tab" data-page="analytics">
+                <i class="fas fa-chart-line mr-2"></i>
+                Analytics
+            </a>
+        </div>
+    </nav>
+</header>
+
+<style>
+/* Navbar Styles */
+.nav-tab {
+    padding: 1rem 1.5rem;
+    color: #4B5563;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.nav-tab:hover {
+    color: var(--primary-color);
+}
+
+.nav-tab.active {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Add spacing for fixed navbar */
+body {
+    padding-top: 135px; /* Adjust based on navbar height */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .nav-tab i {
+        font-size: 1.125rem;
+    }
+    .nav-tab span {
+        font-size: 0.875rem;
+    }
+}
+
+/* Animations */
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#dropdownMenu {
+    animation: dropdownFadeIn 0.2s ease-out;
+}
+</style>
+
+<script src="../shared/navbar.js"></script>

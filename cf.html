@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eesha - Your One-Stop Shopping Destination</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f0474a',
+                        secondary: '#2c3e50',
+                        'custom-red': {
+                            50: '#fff1f1',
+                            100: '#ffe4e4',
+                            200: '#fecaca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --primary: #f0474a;
+            --primary-dark: #c93536;
+        }
+        .category-pill {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .category-pill.active,
+        .category-pill:hover {
+            background: var(--primary);
+        }
+        .star {
+            color: #ffc107;
+            font-size: 0.875rem;
+        }
+        .product-price {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .price {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .original-price {
+            font-size: 0.9rem;
+            color: var(--text-tertiary);
+            text-decoration: line-through;
+        }
+        .add-to-cart-btn {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .add-to-cart-btn:hover {
+            background: var(--primary-dark);
+        }
+        @keyframes cartSlideIn {
+            0% { opacity: 0; transform: translateX(-100%) rotate(-5deg) scale(0.8); }
+            50% { opacity: 1; transform: translateX(10%) rotate(2deg) scale(1.05); }
+            75% { transform: translateX(-5%) rotate(-1deg) scale(0.98); }
+            90% { transform: translateX(2%) rotate(0.5deg) scale(1.02); }
+            100% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+        }
+        .animate-cart-slide {
+            animation: cartSlideIn 2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes floatEffect {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .floating {
+            animation: floatEffect 3s ease-in-out infinite;
+        }
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        .animate-bounce {
+            animation: bounce 0.5s;
+        }
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-custom-red-50">
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="fixed inset-0 bg-gradient-to-br from-custom-red-50 via-rose-100 to-primary/80 flex justify-center items-center z-[9999]">
+        <div class="relative flex flex-col items-center">
+            <div class="w-48 h-48 flex items-center justify-center">
+                <svg viewBox="0 0 280 70" class="w-full h-full">
+                    <defs>
+                        <linearGradient id="splashLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#fbbf24"/>
+                            <stop offset="50%" stop-color="#f59e0b"/>
+                            <stop offset="100%" stop-color="#d97706"/>
+                        </linearGradient>
+                        <filter id="splashLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    <!-- Bag Body -->
+                    <g transform="translate(5, 8)">
+                        <path d="M8 12 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 12 Q52 8 48 8 L12 8 Q8 8 8 12 Z" 
+                              fill="url(#splashLogoGrad)" filter="url(#splashLogoGlow)"/>
+                        <path d="M18 8 Q18 -2 30 -2 Q42 -2 42 8" 
+                              fill="none" stroke="url(#splashLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M18 22 L38 22 M18 35 L32 35 M18 48 L38 48 M18 22 L18 48" 
+                              fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
+                        <g transform="translate(52, 6)">
+                            <path d="M0 0 L2 6 L8 8 L2 10 L0 16 L-2 10 L-8 8 L-2 6 Z" fill="#fbbf24"/>
+                        </g>
+                    </g>
+                    <!-- Logo Text -->
+                    <text x="70" y="48" font-family="system-ui, sans-serif" font-size="38" font-weight="800" fill="url(#splashLogoGrad)">
+                        EeshaMart
+                    </text>
+                    <text x="72" y="62" font-family="system-ui, sans-serif" font-size="10" fill="#9ca3af" letter-spacing="2">
+                        NIGERIA'S #1 MARKETPLACE
+                    </text>
+                </svg>
+            </div>
+            <div class="mt-6 text-3xl font-bold text-primary opacity-0 transition-opacity duration-500 text-center drop-shadow-lg" id="splash-text">
+                Welcome to EeshaMart
+            </div>
+            <div class="mt-3 text-lg font-medium text-secondary opacity-0 transition-opacity duration-500 text-center bg-white/50 px-4 py-1 rounded-full backdrop-blur-sm shadow-md" id="kaduna-text">
+                Available only in Kaduna
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="index.html" class="flex items-center gap-2 group">
+                        <div class="w-10 h-10 flex items-center justify-center">
+                            <svg viewBox="0 0 60 60" class="w-full h-full">
+                                <defs>
+                                    <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#fbbf24"/>
+                                        <stop offset="50%" stop-color="#f59e0b"/>
+                                        <stop offset="100%" stop-color="#d97706"/>
+                                    </linearGradient>
+                                    <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                                      fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                                <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                                      fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                                <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                                      fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                                <g transform="translate(52, 8)">
+                                    <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                            <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="hidden md:flex flex-1 max-w-xl mx-8">
+                    <div class="relative w-full">
+                        <input type="text" placeholder="Search products..." 
+                               class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                        <button class="absolute right-0 top-0 bottom-0 px-4 bg-primary text-white rounded-r-lg" aria-label="Search">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Links -->
+                <div class="flex items-center space-x-6" id="auth-links">
+                    <a href="Eesha buying folder/login.html" class="hidden md:block text-gray-600 hover:text-primary" id="login-link">
+                        <i class="fas fa-user mr-2"></i>Login
+                    </a>
+                    <a href="Eesha buying folder/signup.html" class="hidden md:block text-gray-600 hover:text-primary" id="signup-link">
+                        <i class="fas fa-user-plus mr-2"></i>Sign Up
+                    </a>
+                    <div id="user-menu" class="hidden relative">
+                        <button id="user-menu-button" class="flex items-center space-x-2 text-gray-600 hover:text-primary" aria-label="Open user menu">
+                            <i class="fas fa-user-circle text-xl"></i>
+                            <span id="user-email" class="hidden md:block"></span>
+                        </button>
+                        <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1">
+                            <a href="#" id="logout-button" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                        </div>
+                    </div>
+                    <a href="Eesha buying folder/cart.html" class="relative text-gray-600 hover:text-primary">
+                        <i class="fas fa-shopping-cart text-xl"></i>
+                        <span id="cartCount" class="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                    </a>
+                    <button class="md:hidden text-gray-600" id="mobileMenuBtn" aria-label="Toggle mobile menu">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+             <!-- Mobile Menu -->
+            <div class="md:hidden hidden" id="mobileMenu">
+                <div class="px-4 py-2 bg-custom-red-50">
+                    <div class="flex flex-col space-y-4" id="mobile-auth-links">
+                        <a href="Eesha buying folder/login.html" class="text-gray-600">Login</a>
+                        <a href="Eesha buying folder/signup.html" class="text-gray-600">Sign Up</a>
+                        <a href="#" id="mobile-logout-button" class="text-gray-600 hidden">Logout</a>
+                        <div class="border-t border-gray-200 pt-2">
+                            <a href="#" class="block py-2 text-gray-600">Electronics</a>
+                            <a href="#" class="block py-2 text-gray-600">Fashion</a>
+                            <a href="#" class="block py-2 text-gray-600">Home & Living</a>
+                            <a href="#" class="block py-2 text-gray-600">Beauty</a>
+                            <a href="#" class="block py-2 text-gray-600">Sports</a>
+                            <a href="#" class="block py-2 text-gray-600">Books</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 mt-32">
+        <!-- Hero Section -->
+        <section class="mb-12">
+            <div class="bg-custom-red-100 rounded-xl overflow-hidden h-96 relative">
+                <!-- Hero Slider will be added here -->
+                <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-custom-red-200/80 to-transparent">
+                    <h2 class="text-4xl font-bold text-gray-800">Welcome to Eesha</h2>
+                </div>
+            </div>
+        </section>
+
+        <!-- Featured Deals -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold mb-6">Featured Deals</h2>
+            <div class="border-b border-gray-200 mb-4">
+                <nav class="flex space-x-4" id="categoryTabs">
+                    <!-- Category tabs will be inserted here -->
+                </nav>
+            </div>
+            <div id="categoryTabContent">
+                <!-- Product cards will be added dynamically -->
+            </div>
+        </section>
+
+        <!-- Categories Section -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-bold mb-6">Shop by Category</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow cursor-pointer">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
+                        <i class="fas fa-mobile-alt text-2xl text-primary"></i>
+                    </div>
+                    <h3 class="text-gray-800">Electronics</h3>
+                </div>
+                <!-- More category cards will be added -->
+            </div>
+        </section>
+    </main>
+
+    <!-- AI Shopping Assistant -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <button id="openAIChat" class="bg-primary text-white rounded-full px-6 py-3 flex items-center space-x-2 shadow-lg hover:bg-opacity-90 transition-opacity">
+            <i class="fas fa-robot"></i>
+            <span>Shopping Assistant</span>
+        </button>
+    </div>
+
+    <!-- AI Chat Modal -->
+    <div id="aiChatModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50">
+        <div class="absolute bottom-24 right-6 w-96 bg-white rounded-lg shadow-xl">
+            <div class="p-4 bg-primary text-white rounded-t-lg flex justify-between items-center">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-robot mr-2"></i>
+                    Shopping Assistant
+                </h3>
+                <button id="closeAIChat" class="text-white hover:text-gray-200" aria-label="Close chat">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="h-96 overflow-y-auto p-4" id="aiChatMessages">
+                <!-- Chat messages will appear here -->
+            </div>
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex space-x-2">
+                    <input type="text" id="aiChatInput" placeholder="Type your message..."
+                           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary">
+                    <button id="aiChatSend" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-opacity-90" aria-label="Send message">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1000] flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center">
+            <h3 class="text-xl font-semibold mb-4">Authentication Required</h3>
+            <p class="text-gray-600 mb-6">Please sign in before you can add this product to your cart.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="closeAuthModal" class="px-6 py-2 bg-gray-200 rounded-lg">Close</button>
+                <a href="Eesha buying folder/login.html" class="px-6 py-2 bg-primary text-white rounded-lg">Sign In</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-8">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-xl font-semibold mb-4">About Eesha</h3>
+                    <p class="text-gray-400">Your trusted online shopping destination for quality products.</p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold mb-4">Quick Links</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">About Us</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Contact</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Terms & Conditions</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold mb-4">Connect With Us</h3>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white text-xl" aria-label="Facebook">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white text-xl" aria-label="Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white text-xl" aria-label="Instagram">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-gray-700 text-center text-gray-400">
+                <p>&copy; 2025 Eesha. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    // Global state
+    let currentUser = null;
+
+    // Product click handler
+    function handleProductClick(event, productId) {
+        // Ignore if clicked on the Add to Cart button
+        if (event.target.closest('button')) return;
+        
+        // Navigate to product details page
+        window.location.href = `Eesha buying folder/product.html?id=${productId}`;
+    }
+
+    // Cart Management Functions
+    function addToCart(productId) {
+        if (!currentUser) {
+            document.getElementById('authModal').classList.remove('hidden');
+            return;
+        }
+
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const existingItem = cart.find(item => item.productId === productId);
+        
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            cart.push({ productId, quantity: 1 });
+        }
+        
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        
+        // Show feedback animation
+        const cartIcon = document.querySelector('.fa-shopping-cart');
+        cartIcon.classList.add('animate-bounce');
+        setTimeout(() => cartIcon.classList.remove('animate-bounce'), 1000);
+    }
+
+    function updateCartCount() {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const cartCountElement = document.getElementById('cartCount');
+        if (cartCountElement) {
+            cartCountElement.textContent = count;
+        }
+    }
+
+    // Wait for both DOM and Supabase to be ready
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Use centralized Supabase client
+            const supabase = window.supabase;
+
+        // --- Auth Management ---
+        function updateUIforAuthState(user) {
+            const loginLink = document.getElementById('login-link');
+            const signupLink = document.getElementById('signup-link');
+            const userMenu = document.getElementById('user-menu');
+            const userEmail = document.getElementById('user-email');
+            const mobileLogin = document.querySelector('#mobile-auth-links a[href="Eesha buying folder/login.html"]');
+            const mobileSignup = document.querySelector('#mobile-auth-links a[href="Eesha buying folder/signup.html"]');
+            const mobileLogout = document.getElementById('mobile-logout-button');
+
+            if (user) {
+                // User is logged in: hide login/signup, show user menu
+                loginLink.style.display = 'none';
+                signupLink.style.display = 'none';
+                userMenu.style.display = 'block';
+                userEmail.textContent = user.email;
+                
+                mobileLogin.style.display = 'none';
+                mobileSignup.style.display = 'none';
+                mobileLogout.style.display = 'block';
+            } else {
+                // User is logged out: show login/signup, hide user menu
+                loginLink.style.display = 'block';
+                signupLink.style.display = 'block';
+                userMenu.style.display = 'none';
+
+                mobileLogin.style.display = 'block';
+                mobileSignup.style.display = 'block';
+                mobileLogout.style.display = 'none';
+            }
+        }
+
+        // Listen for auth state changes and update UI accordingly
+        // This is the primary way to manage UI based on auth state.
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth event:', event, 'Session:', session);
+            const user = session?.user;
+            currentUser = user || null;
+            updateUIforAuthState(user);
+        });
+
+        const logoutButton = document.getElementById('logout-button');
+        const mobileLogoutButton = document.getElementById('mobile-logout-button');
+        
+        const handleLogout = async (e) => {
+            e.preventDefault();
+            console.log('Logging out...');
+            await supabase.auth.signOut();
+        };
+
+        logoutButton.addEventListener('click', handleLogout);
+        mobileLogoutButton.addEventListener('click', handleLogout);
+
+        const userMenuButton = document.getElementById('user-menu-button');
+        const userMenuDropdown = document.getElementById('user-menu-dropdown');
+        userMenuButton.addEventListener('click', () => {
+            userMenuDropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown if clicked outside
+        document.addEventListener('click', (e) => {
+            if (!userMenu.contains(e.target)) {
+                userMenuDropdown.classList.add('hidden');
+            }
+        });
+        // --- End Auth Management ---
+
+
+        // Splash Screen
+        const splash = document.getElementById('splash-screen');
+        const splashText = document.getElementById('splash-text');
+        
+        setTimeout(() => {
+            splashText.style.opacity = '1';
+            document.getElementById('kaduna-text').style.opacity = '1';
+        }, 1500);
+
+        setTimeout(() => {
+            splash.style.opacity = '0';
+            splash.style.transition = 'opacity 0.8s ease';
+            setTimeout(() => {
+                splash.style.display = 'none';
+            }, 800);
+        }, 3000);
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Auth Modal
+        const authModal = document.getElementById('authModal');
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        closeAuthModal.addEventListener('click', () => {
+            authModal.classList.add('hidden');
+        });
+
+        // Render featured products
+        function renderProducts(productsToRender) {
+            const productGrid = document.getElementById('categoryTabContent');
+            if (!productGrid) return;
+            productGrid.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">' +
+                productsToRender.map(product => `
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer" 
+                         data-product-id="${product.id}" onclick="handleProductClick(event, ${product.id})">
+                        <img src="${product.image_url}" alt="${product.name}" class="w-full h-48 object-cover">
+                        <div class="p-4">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">${product.name}</h3>
+                            <p class="text-gray-600 mb-2 line-clamp-2">${product.description}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-primary font-bold">$${product.price}</span>
+                                <button onclick="event.stopPropagation(); addToCart(${product.id})" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-opacity-90">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('') + '</div>';
+        }
+
+        // AI Chat functionality
+        const aiChatModal = document.getElementById('aiChatModal');
+        const openAIChat = document.getElementById('openAIChat');
+        const closeAIChat = document.getElementById('closeAIChat');
+        const chatMessages = document.getElementById('aiChatMessages');
+        const userInput = document.getElementById('aiChatInput');
+        const sendMessage = document.getElementById('aiChatSend');
+
+        openAIChat.addEventListener('click', () => {
+            aiChatModal.classList.remove('hidden');
+            if (chatMessages.children.length === 0) {
+                addMessage('ai', 'Hello! I\'m your shopping assistant. How can I help you today?');
+            }
+        });
+
+        closeAIChat.addEventListener('click', () => {
+            aiChatModal.classList.add('hidden');
+        });
+
+        sendMessage.addEventListener('click', handleMessageSend);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleMessageSend();
+            }
+        });
+
+        function handleMessageSend() {
+            const message = userInput.value.trim();
+            if (message) {
+                addMessage('user', message);
+                userInput.value = '';
+                setTimeout(() => {
+                    addMessage('ai', 'I can help you find the perfect product. Could you tell me more about what you\'re looking for?');
+                }, 1000);
+            }
+        }
+
+        function addMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'mb-4 ' + (sender === 'user' ? 'text-right' : '');
+            messageDiv.innerHTML = 
+                '<div class="' + (sender === 'user' ? 'bg-primary text-white ml-auto' : 'bg-gray-200') + ' inline-block rounded-lg px-4 py-2 max-w-[80%]">' +
+                    text +
+                '</div>';
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Initialize app functionality
+        async function initializeApp() {
+            try {
+                console.log('Fetching products...');
+                const { data: products, error } = await supabase
+                    .from('products')
+                    .select('*');
+
+                if (error) {
+                    console.error('Error fetching products:', error);
+                    return;
+                }
+
+                console.log('Products fetched:', products);
+                
+                // --- Category Tabs and Filtering Logic ---
+                const categoryTabsContainer = document.getElementById('categoryTabs');
+                const categories = ['All', ...new Set(products.map(p => p.category))];
+
+                categoryTabsContainer.innerHTML = categories.map((category, index) => `
+                    <button class="tab-btn ${index === 0 ? 'active' : ''}" data-category="${category}">
+                        ${category}
+                    </button>
+                `).join('');
+
+                function filterAndRenderProducts() {
+                    const activeTab = document.querySelector('.tab-btn.active');
+                    const selectedCategory = activeTab.dataset.category;
+
+                    const filteredProducts = selectedCategory === 'All'
+                        ? products
+                        : products.filter(p => p.category === selectedCategory);
+                    
+                    renderProducts(filteredProducts);
+                }
+
+                categoryTabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        categoryTabsContainer.querySelector('.tab-btn.active').classList.remove('active');
+                        btn.classList.add('active');
+                        filterAndRenderProducts();
+                    });
+                });
+                // --- End Category Logic ---
+
+                filterAndRenderProducts(); // Initial render
+                updateCartCount();
+
+            } catch (err) {
+                console.error('Error in initializeApp:', err);
+            }
+
+            const searchInput = document.querySelector('input[placeholder="Search products..."]');
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    console.log('Searching for:', searchInput.value);
+                }
+            });
+        }
+
+        initializeApp();
+        // We need updateCartCount to be globally accessible for addToCart
+        // So we move it out of initializeApp
+        function updateCartCount() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const cartCountElement = document.getElementById('cartCount');
+            if (cartCountElement) {
+                cartCountElement.textContent = count;
+            }
+        }
+    });
+    </script>
+<!-- Code injected by live-server -->
+<script>
+        // <![CDATA[  <-- For SVG support
+        if ('WebSocket' in window) {
+                (function () {
+                        function refreshCSS() {
+                                var sheets = [].slice.call(document.getElementsByTagName("link"));
+                                var head = document.getElementsByTagName("head")[0];
+                                for (var i = 0; i < sheets.length; ++i) {
+                                        var elem = sheets[i];
+                                        var parent = elem.parentElement || head;
+                                        parent.removeChild(elem);
+                                        var rel = elem.rel;
+                                        if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+                                                var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+                                                elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+                                        }
+                                        parent.appendChild(elem);
+                                }
+                        }
+                        var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+                        var address = protocol + window.location.host + window.location.pathname + '/ws';
+                        var socket = new WebSocket(address);
+                        socket.onmessage = function (msg) {
+                                if (msg.data == 'reload') window.location.reload();
+                                else if (msg.data == 'refreshcss') refreshCSS();
+                        };
+                        if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+                                console.log('Live reload enabled.');
+                                sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+                        }
+                })();
+        }
+        else {
+                console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+        }
+        // ]]>
+</script>
+</body>
+</html>

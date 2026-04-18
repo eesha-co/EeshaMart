@@ -1,0 +1,11 @@
+
+[build]
+  publish = "."
+  command = ""
+  functions = "netlify/functions"
+
+[build.environment]
+  GIT_SUBMODULE_STRATEGY = "none"
+
+# No catch-all redirect - this is a multi-page static site, not an SPA
+# Each HTML file should be served directly without redirects

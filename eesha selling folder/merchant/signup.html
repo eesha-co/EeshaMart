@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Sign Up - Eesha Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="../Eesha buying folder/shared/image1.svg" alt="Eesha Logo" class="mx-auto h-20">
+            <h2 class="mt-4 text-3xl font-bold text-gray-900">Create Merchant Account</h2>
+            <p class="mt-2 text-gray-600">Start selling on Eesha Shop</p>
+        </div>
+
+        <div class="bg-white shadow-xl rounded-lg p-8">
+            <!-- Multi-step Form -->
+            <form id="signupForm" class="space-y-6">
+                <!-- Progress Steps -->
+                <div class="flex justify-between items-center mb-8">
+                    <div class="w-full flex items-center">
+                        <div class="relative flex flex-col items-center flex-1">
+                            <div class="w-6 h-6 bg-[#f0474a] rounded-full flex items-center justify-center text-white text-sm step-indicator" data-step="1">1</div>
+                            <div class="text-xs mt-2">Account</div>
+                        </div>
+                        <div class="flex-1 h-1 bg-gray-200 step-line"></div>
+                        <div class="relative flex flex-col items-center flex-1">
+                            <div class="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-white text-sm step-indicator" data-step="2">2</div>
+                            <div class="text-xs mt-2">Personal</div>
+                        </div>
+                        <div class="flex-1 h-1 bg-gray-200 step-line"></div>
+                        <div class="relative flex flex-col items-center flex-1">
+                            <div class="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-white text-sm step-indicator" data-step="3">3</div>
+                            <div class="text-xs mt-2">Business</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Account Information -->
+                <div class="form-step" id="step1">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Account Setup</h3>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                        <input type="email" id="email" name="email" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <div class="relative">
+                            <input type="password" id="password" name="password" required minlength="8"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]"
+                                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#+=])[A-Za-z\d@$!%*?&#+=]{8,}$">
+                            <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center" onclick="togglePasswordVisibility('password')">
+                                <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-600">
+                            <p>Password must contain: 8+ chars, uppercase, lowercase, number, special char</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                        <div class="relative">
+                            <input type="password" id="confirm_password" name="confirm_password" required minlength="8"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                            <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center" onclick="togglePasswordVisibility('confirm_password')">
+                                <i class="fas fa-eye text-gray-400 hover:text-gray-600"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Personal Information -->
+                <div class="form-step hidden" id="step2">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
+                            <input type="text" id="first_name" name="first_name" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                        </div>
+                        <div>
+                            <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                            <input type="text" id="last_name" name="last_name" required
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="contact_phone" class="block text-sm font-medium text-gray-700">Contact Phone</label>
+                        <div class="flex">
+                            <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 rounded-l-md border border-r-0 border-gray-300">+234</span>
+                            <input type="tel" id="contact_phone" name="contact_phone" required
+                                   class="mt-0 block w-full px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Business Information -->
+                <div class="form-step hidden" id="step3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Business Information</h3>
+                    
+                    <div>
+                        <label for="business_name" class="block text-sm font-medium text-gray-700">Business/Shop Name</label>
+                        <input type="text" id="business_name" name="business_name" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="business_category" class="block text-sm font-medium text-gray-700">Business Category</label>
+                        <select id="business_category" name="business_category" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                            <option value="">Select a category</option>
+                            <option value="retail">Retail</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="fashion">Fashion & Apparel</option>
+                            <option value="home">Home & Garden</option>
+                            <option value="beauty">Beauty & Personal Care</option>
+                            <option value="food">Food & Beverages</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="business_location" class="block text-sm font-medium text-gray-700">Business Location</label>
+                        <input type="text" id="business_location" name="business_location" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
+                        <input type="text" id="address" name="address" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                    </div>
+
+                    <div class="mt-6">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="terms" name="terms" required
+                                   class="h-4 w-4 text-[#f0474a] focus:ring-[#f0474a] border-gray-300 rounded">
+                            <label for="terms" class="ml-2 block text-sm text-gray-900">
+                                I agree to the <a href="#" class="text-[#f0474a] hover:underline">Terms and Conditions</a>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message Area -->
+                <div id="messageArea" class="hidden text-sm text-center mb-4"></div>
+
+                <!-- Navigation Buttons -->
+                <div class="flex flex-col gap-4 mt-8">
+                    <div class="flex justify-between gap-2">
+                        <button type="button" id="prevButton"
+                                class="hidden flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                            Previous
+                        </button>
+                        <button type="button" id="nextButton"
+                                class="flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f0474a] hover:bg-[#e43d40]">
+                            Next
+                        </button>
+                        <button type="submit" id="signupButton"
+                                class="hidden flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f0474a] hover:bg-[#e43d40]">
+                            <span>Create Account</span>
+                            <i class="fas fa-spinner loading ml-2 hidden"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Sign In Link -->
+            <div class="mt-8">
+                <p class="text-center text-sm text-gray-600">
+                    Already have an account?
+                    <a href="login.html" class="font-medium text-[#f0474a] hover:underline">Sign in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const supabaseClient = window.supabase;
+        let currentStep = 1;
+        const totalSteps = 3;
+        
+        const formSteps = document.querySelectorAll('.form-step');
+        const stepIndicators = document.querySelectorAll('.step-indicator');
+        const prevButton = document.getElementById('prevButton');
+        const nextButton = document.getElementById('nextButton');
+        const signupButton = document.getElementById('signupButton');
+        const messageArea = document.getElementById('messageArea');
+        const loadingIcon = signupButton.querySelector('.loading');
+
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.nextElementSibling.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        function validateStep(step) {
+            const currentForm = document.querySelector(`#step${step}`);
+            const inputs = currentForm.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+
+            inputs.forEach(input => {
+                if (!input.checkValidity()) {
+                    isValid = false;
+                    input.classList.add('border-red-500');
+                } else {
+                    input.classList.remove('border-red-500');
+                }
+            });
+
+            if (step === 1) {
+                const password = document.getElementById('password');
+                const confirmPassword = document.getElementById('confirm_password');
+                if (password.value !== confirmPassword.value) {
+                    isValid = false;
+                    confirmPassword.classList.add('border-red-500');
+                    showMessage('Passwords do not match', true);
+                }
+            }
+
+            return isValid;
+        }
+
+        function updateFormSteps() {
+            formSteps.forEach((step, index) => {
+                step.classList.toggle('hidden', index + 1 !== currentStep);
+            });
+
+            stepIndicators.forEach((indicator, index) => {
+                indicator.classList.toggle('bg-[#f0474a]', index + 1 <= currentStep);
+                indicator.classList.toggle('bg-gray-300', index + 1 > currentStep);
+            });
+
+            prevButton.classList.toggle('hidden', currentStep === 1);
+            nextButton.classList.toggle('hidden', currentStep === totalSteps);
+            signupButton.classList.toggle('hidden', currentStep !== totalSteps);
+        }
+
+        function showMessage(message, isError = true) {
+            messageArea.textContent = message;
+            messageArea.classList.remove('hidden', 'text-red-600', 'text-green-600');
+            messageArea.classList.add(isError ? 'text-red-600' : 'text-green-600');
+        }
+
+        function setLoading(isLoading) {
+            loadingIcon.classList.toggle('hidden', !isLoading);
+            signupButton.disabled = isLoading;
+        }
+
+        // Hash password using SHA-256
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + 'eesha_salt_2024');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        nextButton.addEventListener('click', () => {
+            if (validateStep(currentStep) && currentStep < totalSteps) {
+                currentStep++;
+                updateFormSteps();
+            }
+        });
+
+        prevButton.addEventListener('click', () => {
+            if (currentStep > 1) {
+                currentStep--;
+                updateFormSteps();
+            }
+        });
+
+        updateFormSteps();
+
+        // Form submission
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            for (let i = 1; i <= totalSteps; i++) {
+                if (!validateStep(i)) {
+                    currentStep = i;
+                    updateFormSteps();
+                    return;
+                }
+            }
+
+            setLoading(true);
+            showMessage('', false);
+
+            try {
+                const email = document.getElementById('email').value.toLowerCase();
+                const password = document.getElementById('password').value;
+                const first_name = document.getElementById('first_name').value;
+                const last_name = document.getElementById('last_name').value;
+                const business_name = document.getElementById('business_name').value;
+                const business_category = document.getElementById('business_category').value;
+                const business_location = document.getElementById('business_location').value;
+                const contact_phone = '+234' + document.getElementById('contact_phone').value;
+                const address = document.getElementById('address').value;
+
+                // Check if email already exists in Supabase
+                const { data: existingSeller } = await supabaseClient
+                    .from('sellers')
+                    .select('id')
+                    .eq('email', email)
+                    .single();
+
+                if (existingSeller) {
+                    showMessage('An account with this email already exists. Please login instead.', true);
+                    setLoading(false);
+                    return;
+                }
+
+                // Hash the password
+                const passwordHash = await hashPassword(password);
+
+                // Insert into Supabase sellers table
+                const { data: sellerData, error: insertError } = await supabaseClient
+                    .from('sellers')
+                    .insert([{
+                        email: email,
+                        password_hash: passwordHash,
+                        first_name: first_name,
+                        last_name: last_name,
+                        business_name: business_name,
+                        business_category: business_category,
+                        business_location: business_location,
+                        seller_type: 'MERCHANT',
+                        contact_phone: contact_phone,
+                        address: address,
+                        status: 'active',
+                        email_verified: false,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }])
+                    .select();
+
+                if (insertError) {
+                    console.error('Insert error:', insertError);
+                    throw new Error(insertError.message);
+                }
+
+                // Store ONLY the seller ID in localStorage (as a reference)
+                // All actual data will be fetched from Supabase
+                localStorage.setItem('sellerId', sellerData[0].id);
+                localStorage.setItem('isLoggedIn', 'true');
+
+                showMessage('Account created successfully! Redirecting...', false);
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error('Signup error:', error);
+                showMessage(error.message || 'Failed to create account. Please try again.', true);
+            } finally {
+                setLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>

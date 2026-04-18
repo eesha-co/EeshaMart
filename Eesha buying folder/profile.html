@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - EeshaMart | Nigeria's #1 Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="../index.html" class="flex items-center gap-2 group">
+                <div class="w-10 h-10 flex items-center justify-center">
+                    <svg viewBox="0 0 60 60" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fbbf24"/>
+                                <stop offset="50%" stop-color="#f59e0b"/>
+                                <stop offset="100%" stop-color="#d97706"/>
+                            </linearGradient>
+                            <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                              fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                        <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                              fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                              fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                        <g transform="translate(52, 8)">
+                            <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                    <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                </div>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="../index.html" class="text-gray-600 hover:text-brand-500">
+                    <i class="fas fa-home text-xl"></i>
+                </a>
+                <a href="cart.html" class="text-gray-600 hover:text-brand-500 relative">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-brand-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Back Link -->
+        <a href="../index.html" class="inline-flex items-center text-gray-600 hover:text-brand-500 mb-6">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Home
+        </a>
+
+        <!-- Profile Card -->
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <!-- Profile Header -->
+                <div class="bg-gradient-to-r from-primary to-red-400 p-8 text-white">
+                    <div class="flex flex-col md:flex-row items-center gap-6">
+                        <div class="relative">
+                            <div id="avatarLarge" class="w-32 h-32 rounded-full bg-white text-brand-500 text-5xl font-bold flex items-center justify-center border-4 border-white shadow-lg">
+                                U
+                            </div>
+                            <button id="changePhotoBtn" class="absolute bottom-0 right-0 bg-white text-brand-500 rounded-full p-2 shadow-lg hover:bg-gray-100">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
+                        <div class="text-center md:text-left">
+                            <h1 id="userName" class="text-3xl font-bold">Loading...</h1>
+                            <p id="userEmail" class="text-white/80 mt-1">Loading...</p>
+                            <span class="inline-block mt-2 bg-white/20 px-3 py-1 rounded-full text-sm">
+                                <i class="fas fa-crown mr-1"></i> Member since <span id="memberSince">2024</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 border-b">
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <i class="fas fa-shopping-bag text-2xl text-brand-500 mb-2"></i>
+                        <p id="totalOrders" class="text-2xl font-bold">0</p>
+                        <p class="text-gray-500 text-sm">Orders</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <i class="fas fa-heart text-2xl text-red-400 mb-2"></i>
+                        <p id="totalWishlist" class="text-2xl font-bold">0</p>
+                        <p class="text-gray-500 text-sm">Wishlist</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <i class="fas fa-star text-2xl text-yellow-400 mb-2"></i>
+                        <p id="totalReviews" class="text-2xl font-bold">0</p>
+                        <p class="text-gray-500 text-sm">Reviews</p>
+                    </div>
+                    <div class="text-center p-4 bg-gray-50 rounded-lg">
+                        <i class="fas fa-wallet text-2xl text-green-500 mb-2"></i>
+                        <p id="totalSpent" class="text-2xl font-bold">$0</p>
+                        <p class="text-gray-500 text-sm">Spent</p>
+                    </div>
+                </div>
+
+                <!-- Profile Form -->
+                <form id="profileForm" class="p-6 space-y-6">
+                    <h2 class="text-xl font-semibold mb-4">
+                        <i class="fas fa-user-edit mr-2 text-brand-500"></i> Personal Information
+                    </h2>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                            <input type="text" id="fullName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter your name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                            <input type="email" id="emailDisplay" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100" disabled>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                            <input type="tel" id="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter your phone">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                            <input type="date" id="dob" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <textarea id="address" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter your address"></textarea>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                            <input type="text" id="city" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="City">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">State</label>
+                            <input type="text" id="state" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="State">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
+                            <input type="text" id="zip" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="ZIP">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-4 pt-4">
+                        <a href="../index.html" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</a>
+                        <button type="submit" id="saveBtn" class="px-6 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 flex items-center">
+                            <span>Save Changes</span>
+                            <i class="fas fa-spinner loading ml-2 hidden"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-8 grid md:grid-cols-4 gap-4">
+                <a href="orders.html" class="bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-center group">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200">
+                        <i class="fas fa-box text-blue-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold">My Orders</h3>
+                    <p class="text-gray-500 text-sm">Track your orders</p>
+                </a>
+                <a href="wishlist.html" class="bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-center group">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-red-200">
+                        <i class="fas fa-heart text-red-500 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold">Wishlist</h3>
+                    <p class="text-gray-500 text-sm">Saved items</p>
+                </a>
+                <a href="cart.html" class="bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-center group">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200">
+                        <i class="fas fa-shopping-cart text-green-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold">My Cart</h3>
+                    <p class="text-gray-500 text-sm">View cart items</p>
+                </a>
+                <a href="settings.html" class="bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-center group">
+                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-200">
+                        <i class="fas fa-cog text-purple-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold">Settings</h3>
+                    <p class="text-gray-500 text-sm">Account settings</p>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark-900 text-white py-8 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2025 EeshaMart. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const supabaseClient = window.supabase;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadProfile();
+            await loadStats();
+            await updateCartCount();
+        });
+
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session?.user) {
+                window.location.href = 'login.html?redirect=profile';
+                return;
+            }
+            currentUser = session.user;
+        }
+
+        async function loadProfile() {
+            if (!currentUser) return;
+
+            // Display basic info from auth
+            const fullName = currentUser.user_metadata?.full_name || 
+                            currentUser.user_metadata?.name || 
+                            currentUser.email?.split('@')[0] || 'User';
+            const initial = fullName.charAt(0).toUpperCase();
+
+            document.getElementById('userName').textContent = fullName;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('avatarLarge').textContent = initial;
+            document.getElementById('emailDisplay').value = currentUser.email;
+            document.getElementById('fullName').value = fullName;
+            
+            if (currentUser.created_at) {
+                document.getElementById('memberSince').textContent = new Date(currentUser.created_at).getFullYear();
+            }
+
+            // Load additional profile from database
+            const { data: profile, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (profile) {
+                document.getElementById('phone').value = profile.phone || '';
+                document.getElementById('dob').value = profile.dob || '';
+                document.getElementById('address').value = profile.address || '';
+                document.getElementById('city').value = profile.city || '';
+                document.getElementById('state').value = profile.state || '';
+                document.getElementById('zip').value = profile.zip || '';
+            }
+        }
+
+        async function loadStats() {
+            if (!currentUser) return;
+
+            // Load orders count
+            const { count: ordersCount } = await supabaseClient
+                .from('buyers_orders')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', currentUser.id);
+            document.getElementById('totalOrders').textContent = ordersCount || 0;
+
+            // Load wishlist count
+            const { count: wishlistCount } = await supabaseClient
+                .from('buyers_wishlist')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', currentUser.id);
+            document.getElementById('totalWishlist').textContent = wishlistCount || 0;
+
+            // Load reviews count
+            const { count: reviewsCount } = await supabaseClient
+                .from('buyers_reviews')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', currentUser.id);
+            document.getElementById('totalReviews').textContent = reviewsCount || 0;
+
+            // Calculate total spent
+            const { data: orders } = await supabaseClient
+                .from('buyers_orders')
+                .select('total')
+                .eq('user_id', currentUser.id)
+                .eq('status', 'delivered');
+            
+            const totalSpent = orders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+            document.getElementById('totalSpent').textContent = '$' + totalSpent.toFixed(0);
+        }
+
+        async function updateCartCount() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const user = session?.user;
+            let count = 0;
+
+            if (user) {
+                const { data: rows } = await supabaseClient
+                    .from('cart_items')
+                    .select('quantity')
+                    .eq('user_id', user.id);
+                if (rows) count = rows.reduce((s, r) => s + (r.quantity || 0), 0);
+            }
+
+            const el = document.getElementById('cartCount');
+            if (el) el.textContent = count;
+        }
+
+        // Handle form submission
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const saveBtn = document.getElementById('saveBtn');
+            const loadingIcon = saveBtn.querySelector('.loading');
+            
+            loadingIcon.classList.remove('hidden');
+            saveBtn.disabled = true;
+
+            try {
+                const fullName = document.getElementById('fullName').value;
+                const profileData = {
+                    id: currentUser.id,
+                    phone: document.getElementById('phone').value,
+                    dob: document.getElementById('dob').value,
+                    address: document.getElementById('address').value,
+                    city: document.getElementById('city').value,
+                    state: document.getElementById('state').value,
+                    zip: document.getElementById('zip').value,
+                    updated_at: new Date().toISOString()
+                };
+
+                // Update auth metadata
+                await supabaseClient.auth.updateUser({
+                    data: { full_name: fullName }
+                });
+
+                // Upsert profile
+                const { error } = await supabaseClient
+                    .from('profiles')
+                    .upsert([profileData], { onConflict: 'id' });
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                alert('Profile updated successfully!');
+                document.getElementById('userName').textContent = fullName;
+                document.getElementById('avatarLarge').textContent = fullName.charAt(0).toUpperCase();
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                alert('Failed to save profile. Please try again.');
+            } finally {
+                loadingIcon.classList.add('hidden');
+                saveBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

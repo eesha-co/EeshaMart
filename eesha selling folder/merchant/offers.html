@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offers - Eesha Seller Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <script src="../js/loader.js"></script>
+    <script src="../js/protect-seller-route.js"></script>
+    <script src="../js/load-navbar.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f0474a',
+                        secondary: '#2c3e50',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100">
+    <!-- Include Common Navbar -->
+    <div id="navbar-container"></div>
+
+    <!-- Page Loader -->
+    <div id="loader" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Manage Offers</h1>
+                <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90" onclick="showNewOfferModal()">
+                    <i class="fas fa-plus mr-2"></i>Create New Offer
+                </button>
+            </div>
+
+            <!-- Offers Statistics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="text-green-600 font-semibold">Active Offers</h3>
+                    <p class="text-2xl font-bold" id="activeOffersCount">0</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg">
+                    <h3 class="text-yellow-600 font-semibold">Upcoming Offers</h3>
+                    <p class="text-2xl font-bold" id="upcomingOffersCount">0</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-gray-600 font-semibold">Expired Offers</h3>
+                    <p class="text-2xl font-bold" id="expiredOffersCount">0</p>
+                </div>
+            </div>
+
+            <!-- Offers Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="offersGrid">
+                <!-- Offers will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- New Offer Modal -->
+    <div id="newOfferModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Create New Offer</h2>
+                <button onclick="hideNewOfferModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="newOfferForm" class="space-y-4">
+                <div>
+                    <label for="offerType" class="block text-sm font-medium text-gray-700">Offer Type</label>
+                    <select id="offerType" name="offerType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary" aria-label="Select offer type">
+                        <option value="discount">Discount</option>
+                        <option value="bogo">Buy One Get One</option>
+                        <option value="bundle">Bundle Deal</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="discountPercentage" class="block text-sm font-medium text-gray-700">Discount Percentage</label>
+                    <input type="number" id="discountPercentage" name="discountPercentage" min="0" max="100" 
+                           placeholder="Enter discount percentage" 
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="startDate" class="block text-sm font-medium text-gray-700">Start Date</label>
+                        <input type="date" id="startDate" name="startDate" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                               aria-label="Select start date">
+                    </div>
+                    <div>
+                        <label for="endDate" class="block text-sm font-medium text-gray-700">End Date</label>
+                        <input type="date" id="endDate" name="endDate" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                               aria-label="Select end date">
+                    </div>
+                </div>
+                <div>
+                    <label for="applicableProducts" class="block text-sm font-medium text-gray-700">Applicable Products</label>
+                    <select id="applicableProducts" name="applicableProducts" multiple 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                            aria-label="Select applicable products">
+                        <!-- Products will be loaded here -->
+                    </select>
+                </div>
+                <div>
+                    <label for="terms" class="block text-sm font-medium text-gray-700">Terms & Conditions</label>
+                    <textarea id="terms" name="terms" rows="3" 
+                             placeholder="Enter terms and conditions" 
+                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="hideNewOfferModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90">
+                        Create Offer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loader = document.getElementById('loader');
+            try {
+                // Load navbar and get user data
+                const userData = await loadNavbarWithUserData();
+                if (!userData?.user || !userData?.seller) {
+                    throw new Error('Failed to load user data');
+                }
+                const { user, seller } = userData;
+            const supabase = window.supabase;
+            const offersGrid = document.getElementById('offersGrid');
+
+            async function loadOffers() {
+                const { data: offers, error } = await supabase
+                    .from('offers')
+                    .select('*')
+                    .eq('seller_id', (await supabase.auth.getUser()).data.user.id);
+
+                if (error) {
+                    console.error('Error loading offers:', error);
+                    return;
+                }
+
+                // Update statistics
+                const now = new Date();
+                const counts = {
+                    active: 0,
+                    upcoming: 0,
+                    expired: 0
+                };
+
+                offers.forEach(offer => {
+                    const startDate = new Date(offer.start_date);
+                    const endDate = new Date(offer.end_date);
+                    
+                    if (now < startDate) counts.upcoming++;
+                    else if (now > endDate) counts.expired++;
+                    else counts.active++;
+                });
+
+                document.getElementById('activeOffersCount').textContent = counts.active;
+                document.getElementById('upcomingOffersCount').textContent = counts.upcoming;
+                document.getElementById('expiredOffersCount').textContent = counts.expired;
+
+                // Render offers
+                offersGrid.innerHTML = offers.map(offer => `
+                    <div class="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-lg font-semibold">${offer.type === 'discount' ? offer.discount_percentage + '% OFF' : offer.type}</span>
+                            <span class="px-2 py-1 text-xs rounded-full ${getOfferStatusClass(offer)}">${getOfferStatus(offer)}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-3">Valid: ${new Date(offer.start_date).toLocaleDateString()} - ${new Date(offer.end_date).toLocaleDateString()}</p>
+                        <p class="text-gray-500 text-sm mb-4">${offer.terms}</p>
+                        <div class="flex justify-end space-x-2">
+                            <button onclick="editOffer('${offer.id}')" class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteOffer('${offer.id}')" class="text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function getOfferStatus(offer) {
+                const now = new Date();
+                const startDate = new Date(offer.start_date);
+                const endDate = new Date(offer.end_date);
+                
+                if (now < startDate) return 'Upcoming';
+                if (now > endDate) return 'Expired';
+                return 'Active';
+            }
+
+            function getOfferStatusClass(offer) {
+                const status = getOfferStatus(offer);
+                const classes = {
+                    'Active': 'bg-green-100 text-green-800',
+                    'Upcoming': 'bg-yellow-100 text-yellow-800',
+                    'Expired': 'bg-gray-100 text-gray-800'
+                };
+                return classes[status];
+            }
+
+            // Modal functions
+            window.showNewOfferModal = function() {
+                document.getElementById('newOfferModal').classList.remove('hidden');
+            }
+
+            window.hideNewOfferModal = function() {
+                document.getElementById('newOfferModal').classList.add('hidden');
+            }
+
+            // Form submission
+            document.getElementById('newOfferForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const offer = {
+                    type: formData.get('offerType'),
+                    discount_percentage: formData.get('discountPercentage'),
+                    start_date: formData.get('startDate'),
+                    end_date: formData.get('endDate'),
+                    terms: formData.get('terms'),
+                    seller_id: (await supabase.auth.getUser()).data.user.id
+                };
+
+                const { error } = await supabase
+                    .from('offers')
+                    .insert([offer]);
+
+                if (error) {
+                    console.error('Error creating offer:', error);
+                    return;
+                }
+
+                hideNewOfferModal();
+                loadOffers();
+            });
+
+            // Initial load
+            await loadOffers();
+
+            // Subscribe to changes
+            const offersSubscription = supabase
+                .channel('offers')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'offers'
+                }, () => {
+                    loadOffers();
+                })
+                .subscribe();
+            } catch (error) {
+                console.error('Error initializing offers page:', error);
+                alert('Failed to load offers. Please refresh the page.');
+            } finally {
+                if (loader) loader.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

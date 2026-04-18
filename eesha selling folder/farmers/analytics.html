@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Farmer Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <script src="../js/loader.js"></script>
+    <script>
+        // Auth check
+        (async function checkAuth() {
+            try {
+                const { data: { session }, error } = await window.supabase.auth.getSession();
+                if (error || !session) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --primary-color: #059669;
+            --primary-light: #10B981;
+            --primary-dark: #047857;
+            --secondary-color: #065f46;
+            --dark-color: #14532d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0fdf4;
+            min-height: 100vh;
+        }
+
+        .analytics-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 2rem;
+            color: var(--dark-color);
+        }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .time-filter {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .time-filter button {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .time-filter button.active,
+        .time-filter button:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+
+        .stat-card .change {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .stat-card .change.positive { color: #22c55e; }
+        .stat-card .change.negative { color: #dc3545; }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .chart-card h2 {
+            font-size: 1.25rem;
+            color: var(--dark-color);
+            margin-bottom: 1rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .top-products {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .top-products h2 {
+            font-size: 1.25rem;
+            color: var(--dark-color);
+            margin-bottom: 1rem;
+        }
+
+        .product-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .product-item:last-child { border-bottom: none; }
+
+        .product-item img {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #f0fdf4;
+        }
+
+        .product-info { flex: 1; }
+        .product-info h4 { color: var(--dark-color); font-size: 0.9rem; }
+        .product-info p { color: #6b7280; font-size: 0.8rem; }
+
+        .product-sales { font-weight: 600; color: var(--primary-color); }
+
+        @media (max-width: 1024px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .stats-row { grid-template-columns: 1fr; }
+            .page-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="analytics-container">
+        <div class="page-header">
+            <div>
+                <a href="index.html" class="back-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Dashboard
+                </a>
+                <h1 style="margin-top: 0.5rem;"><i class="fas fa-chart-line mr-2"></i>Farm Analytics</h1>
+            </div>
+            <div class="time-filter">
+                <button>Today</button>
+                <button class="active">Week</button>
+                <button>Month</button>
+                <button>Year</button>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <h3>Total Revenue</h3>
+                <div class="value" id="totalRevenue">₦0</div>
+                <div class="change positive"><i class="fas fa-arrow-up"></i> +12.5% from last week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Orders Completed</h3>
+                <div class="value" id="ordersCompleted">0</div>
+                <div class="change positive"><i class="fas fa-arrow-up"></i> +8 from last week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Products Sold</h3>
+                <div class="value" id="productsSold">0</div>
+                <div class="change positive"><i class="fas fa-arrow-up"></i> +15% from last week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Avg. Order Value</h3>
+                <div class="value" id="avgOrderValue">₦0</div>
+                <div class="change negative"><i class="fas fa-arrow-down"></i> -2.3% from last week</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h2>Sales Overview</h2>
+                <div class="chart-container">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h2>Orders by Category</h2>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Products -->
+        <div class="top-products">
+            <h2><i class="fas fa-trophy mr-2"></i>Top Selling Products</h2>
+            <div id="topProductsList">
+                <div class="product-item">
+                    <img src="https://via.placeholder.com/50" alt="Product">
+                    <div class="product-info">
+                        <h4>Loading...</h4>
+                        <p>0 orders</p>
+                    </div>
+                    <div class="product-sales">₦0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let supabase;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            supabase = window.supabase;
+
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+
+            await loadAnalytics();
+            initCharts();
+        });
+
+        async function loadAnalytics() {
+            // Load orders
+            const { data: orders } = await supabase
+                .from('orders')
+                .select('*, order_items(quantity, products(name, price, image_url, category))')
+                .eq('seller_id', currentUser.id);
+
+            const deliveredOrders = orders?.filter(o => o.status === 'DELIVERED') || [];
+            const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+            const totalProducts = deliveredOrders.reduce((sum, o) => {
+                return sum + (o.order_items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0);
+            }, 0);
+            const avgOrderValue = deliveredOrders.length > 0 ? totalRevenue / deliveredOrders.length : 0;
+
+            document.getElementById('totalRevenue').textContent = '₦' + totalRevenue.toLocaleString();
+            document.getElementById('ordersCompleted').textContent = deliveredOrders.length;
+            document.getElementById('productsSold').textContent = totalProducts;
+            document.getElementById('avgOrderValue').textContent = '₦' + Math.round(avgOrderValue).toLocaleString();
+
+            // Top products
+            const productSales = {};
+            orders?.forEach(order => {
+                order.order_items?.forEach(item => {
+                    if (item.products) {
+                        const name = item.products.name;
+                        if (!productSales[name]) {
+                            productSales[name] = { sales: 0, quantity: 0, image: item.products.image_url };
+                        }
+                        productSales[name].sales += (item.products.price * item.quantity) || 0;
+                        productSales[name].quantity += item.quantity || 0;
+                    }
+                });
+            });
+
+            const topProducts = Object.entries(productSales)
+                .sort((a, b) => b[1].sales - a[1].sales)
+                .slice(0, 5);
+
+            if (topProducts.length > 0) {
+                document.getElementById('topProductsList').innerHTML = topProducts.map(([name, data]) => `
+                    <div class="product-item">
+                        <img src="${data.image || 'https://via.placeholder.com/50'}" alt="${name}">
+                        <div class="product-info">
+                            <h4>${name}</h4>
+                            <p>${data.quantity} sold</p>
+                        </div>
+                        <div class="product-sales">₦${data.sales.toLocaleString()}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function initCharts() {
+            // Sales Chart
+            const salesCtx = document.getElementById('salesChart').getContext('2d');
+            new Chart(salesCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Sales (₦)',
+                        data: [15000, 22000, 18000, 25000, 30000, 28000, 35000],
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#e5e7eb' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Category Chart
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Grains', 'Vegetables', 'Fruits', 'Tubers', 'Livestock'],
+                    datasets: [{
+                        data: [35, 25, 20, 12, 8],
+                        backgroundColor: [
+                            '#059669',
+                            '#10B981',
+                            '#34D399',
+                            '#6EE7B7',
+                            '#A7F3D0'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

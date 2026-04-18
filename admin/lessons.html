@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Lessons - EeshaMart Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { primary: '#f97316', secondary: '#1e293b' } } }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        .sidebar { width: 260px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #94a3b8; text-decoration: none; transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(249, 115, 22, 0.1); color: #f97316; border-left-color: #f97316; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+        .modal { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .lesson-item { transition: all 0.2s; }
+        .lesson-item:hover { background: #f8fafc; }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold">EeshaMart</h1>
+                    <p class="text-gray-400 text-sm">Admin Dashboard</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="py-4">
+            <a href="index.html" class="sidebar-link"><i class="fas fa-home w-5"></i><span>Dashboard</span></a>
+            <a href="courses.html" class="sidebar-link"><i class="fas fa-book w-5"></i><span>Courses</span></a>
+            <a href="lessons.html" class="sidebar-link active"><i class="fas fa-video w-5"></i><span>Lessons</span></a>
+            <a href="live-sessions.html" class="sidebar-link"><i class="fas fa-broadcast-tower w-5"></i><span>Live Sessions</span></a>
+            <a href="sellers.html" class="sidebar-link"><i class="fas fa-users w-5"></i><span>Sellers</span></a>
+            <a href="analytics.html" class="sidebar-link"><i class="fas fa-chart-bar w-5"></i><span>Analytics</span></a>
+            <a href="settings.html" class="sidebar-link"><i class="fas fa-cog w-5"></i><span>Settings</span></a>
+            <div class="mt-4 px-5">
+                <button onclick="logout()" class="sidebar-link w-full text-left"><i class="fas fa-sign-out-alt w-5"></i><span>Logout</span></button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content p-6">
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-bars text-gray-600"></i></button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Lessons</h1>
+                    <p class="text-gray-500 text-sm">Manage course lessons and videos</p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <select id="courseSelect" onchange="loadLessons()" class="border border-gray-200 rounded-lg px-4 py-2 bg-white focus:outline-none focus:border-orange-500">
+                    <option value="">Select Course</option>
+                </select>
+                <button onclick="openLessonModal()" id="addLessonBtn" class="hidden bg-orange-500 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Add Lesson
+                </button>
+            </div>
+        </header>
+
+        <!-- Course Info Card -->
+        <div id="courseInfo" class="hidden bg-white rounded-2xl border border-gray-100 p-5 mb-6">
+            <div class="flex items-center gap-4">
+                <img id="courseThumbnail" src="" alt="" class="w-20 h-20 rounded-xl object-cover">
+                <div class="flex-1">
+                    <h2 id="courseTitle" class="text-xl font-bold text-gray-900">Course Title</h2>
+                    <p id="courseDescription" class="text-sm text-gray-500 mt-1">Course description</p>
+                    <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                        <span><i class="fas fa-signal mr-1"></i><span id="courseLevel">Beginner</span></span>
+                        <span><i class="fas fa-clock mr-1"></i><span id="courseDuration">0</span> mins</span>
+                        <span><i class="fas fa-video mr-1"></i><span id="lessonCount">0</span> lessons</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lessons List -->
+        <div id="lessonsContainer" class="hidden">
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-900">Lessons</h3>
+                    <span class="text-sm text-gray-500">Drag to reorder</span>
+                </div>
+                <div id="lessonsList" class="divide-y divide-gray-50">
+                    <!-- Lessons loaded dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="text-center py-12">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-video text-gray-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Select a Course</h3>
+            <p class="text-gray-500">Choose a course from the dropdown to manage its lessons</p>
+        </div>
+
+        <!-- No Lessons State -->
+        <div id="noLessonsState" class="hidden text-center py-12">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-film text-gray-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No lessons yet</h3>
+            <p class="text-gray-500 mb-4">Add your first lesson to this course</p>
+            <button onclick="openLessonModal()" class="bg-orange-500 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Add First Lesson
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingState" class="hidden text-center py-12">
+            <i class="fas fa-spinner fa-spin text-orange-500 text-3xl mb-3"></i>
+            <p class="text-gray-500">Loading...</p>
+        </div>
+    </main>
+
+    <!-- Lesson Modal -->
+    <div id="lessonModal" class="modal hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-900">Add Lesson</h2>
+                <button onclick="closeLessonModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-times text-gray-500"></i></button>
+            </div>
+            
+            <form id="lessonForm" onsubmit="saveLesson(event)" class="p-6 space-y-4">
+                <input type="hidden" id="lessonId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lesson Title *</label>
+                    <input type="text" id="lessonTitle" required class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500" placeholder="e.g., Introduction to Product Photography">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="lessonDescription" rows="2" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500" placeholder="What will sellers learn in this lesson?"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Video URL *</label>
+                    <input type="url" id="lessonVideoUrl" required class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500" placeholder="YouTube or Vimeo URL">
+                    <p class="text-xs text-gray-500 mt-1">Supports YouTube, Vimeo, or direct video URLs</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                        <input type="number" id="lessonDuration" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500" placeholder="10" min="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                        <input type="number" id="lessonOrder" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500" placeholder="1" min="1">
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="lessonPreview" class="w-5 h-5 rounded border-gray-300 text-orange-500 focus:ring-orange-500">
+                    <label for="lessonPreview" class="text-sm text-gray-700">Free preview (watchable without enrollment)</label>
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeLessonModal()" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+                    <button type="submit" class="flex-1 bg-orange-500 text-white py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Save Lesson
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let allCourses = [];
+        let currentCourse = null;
+        let allLessons = [];
+
+        // Auth check
+        (function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (!isLoggedIn) window.location.href = 'login.html';
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => loadCourses());
+
+        async function loadCourses() {
+            try {
+                const { data, error } = await supabase
+                    .from('academy_courses')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                
+                allCourses = data || [];
+                const select = document.getElementById('courseSelect');
+                select.innerHTML = '<option value="">Select Course</option>' + 
+                    allCourses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+
+                // Check URL params for pre-selected course
+                const urlParams = new URLSearchParams(window.location.search);
+                const courseId = urlParams.get('course');
+                if (courseId) {
+                    select.value = courseId;
+                    loadLessons();
+                }
+            } catch (error) {
+                console.error('Error loading courses:', error);
+            }
+        }
+
+        async function loadLessons() {
+            const courseId = document.getElementById('courseSelect').value;
+            
+            if (!courseId) {
+                document.getElementById('courseInfo').classList.add('hidden');
+                document.getElementById('lessonsContainer').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('noLessonsState').classList.add('hidden');
+                document.getElementById('addLessonBtn').classList.add('hidden');
+                return;
+            }
+
+            currentCourse = allCourses.find(c => c.id === courseId);
+            
+            // Show course info
+            document.getElementById('courseInfo').classList.remove('hidden');
+            document.getElementById('courseThumbnail').src = currentCourse.thumbnail_url || 'https://via.placeholder.com/80';
+            document.getElementById('courseTitle').textContent = currentCourse.title;
+            document.getElementById('courseDescription').textContent = currentCourse.description || 'No description';
+            document.getElementById('courseLevel').textContent = currentCourse.level;
+            document.getElementById('courseDuration').textContent = currentCourse.duration_minutes || 0;
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('addLessonBtn').classList.remove('hidden');
+
+            try {
+                document.getElementById('loadingState').classList.remove('hidden');
+                
+                const { data: lessons, error } = await supabase
+                    .from('academy_lessons')
+                    .select('*')
+                    .eq('course_id', courseId)
+                    .order('order_index', { ascending: true });
+
+                if (error) throw error;
+                
+                allLessons = lessons || [];
+                document.getElementById('lessonCount').textContent = allLessons.length;
+                
+                document.getElementById('loadingState').classList.add('hidden');
+                
+                if (allLessons.length === 0) {
+                    document.getElementById('lessonsContainer').classList.add('hidden');
+                    document.getElementById('noLessonsState').classList.remove('hidden');
+                } else {
+                    document.getElementById('noLessonsState').classList.add('hidden');
+                    document.getElementById('lessonsContainer').classList.remove('hidden');
+                    renderLessons();
+                }
+            } catch (error) {
+                console.error('Error loading lessons:', error);
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        function renderLessons() {
+            const container = document.getElementById('lessonsList');
+            container.innerHTML = allLessons.map((lesson, index) => `
+                <div class="lesson-item p-4 flex items-center gap-4" data-id="${lesson.id}">
+                    <div class="drag-handle text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-grip-vertical"></i>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
+                        ${index + 1}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-medium text-gray-900">${lesson.title}</h4>
+                        <div class="flex items-center gap-3 text-sm text-gray-500">
+                            <span><i class="fas fa-clock mr-1"></i>${lesson.duration_minutes || 0} min</span>
+                            ${lesson.is_preview ? '<span class="text-blue-500"><i class="fas fa-eye mr-1"></i>Preview</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editLesson('${lesson.id}')" class="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteLesson('${lesson.id}')" class="p-2 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-500">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openLessonModal(lesson = null) {
+            document.getElementById('modalTitle').textContent = lesson ? 'Edit Lesson' : 'Add Lesson';
+            document.getElementById('lessonForm').reset();
+            document.getElementById('lessonId').value = lesson?.id || '';
+            
+            if (lesson) {
+                document.getElementById('lessonTitle').value = lesson.title || '';
+                document.getElementById('lessonDescription').value = lesson.description || '';
+                document.getElementById('lessonVideoUrl').value = lesson.video_url || '';
+                document.getElementById('lessonDuration').value = lesson.duration_minutes || '';
+                document.getElementById('lessonOrder').value = lesson.order_index || '';
+                document.getElementById('lessonPreview').checked = lesson.is_preview || false;
+            } else {
+                document.getElementById('lessonOrder').value = allLessons.length + 1;
+            }
+
+            document.getElementById('lessonModal').classList.remove('hidden');
+            document.getElementById('lessonModal').classList.add('flex');
+        }
+
+        function closeLessonModal() {
+            document.getElementById('lessonModal').classList.add('hidden');
+            document.getElementById('lessonModal').classList.remove('flex');
+        }
+
+        async function saveLesson(event) {
+            event.preventDefault();
+            
+            if (!currentCourse) {
+                showNotification('Please select a course first', 'error');
+                return;
+            }
+
+            const lessonId = document.getElementById('lessonId').value;
+            const lessonData = {
+                course_id: currentCourse.id,
+                title: document.getElementById('lessonTitle').value,
+                description: document.getElementById('lessonDescription').value,
+                video_url: document.getElementById('lessonVideoUrl').value,
+                duration_minutes: parseInt(document.getElementById('lessonDuration').value) || 0,
+                order_index: parseInt(document.getElementById('lessonOrder').value) || 1,
+                is_preview: document.getElementById('lessonPreview').checked
+            };
+
+            try {
+                if (lessonId) {
+                    const { error } = await supabase.from('academy_lessons').update(lessonData).eq('id', lessonId);
+                    if (error) throw error;
+                    showNotification('Lesson updated!', 'success');
+                } else {
+                    const { error } = await supabase.from('academy_lessons').insert([lessonData]);
+                    if (error) throw error;
+                    showNotification('Lesson added!', 'success');
+                }
+
+                closeLessonModal();
+                loadLessons();
+            } catch (error) {
+                console.error('Error saving lesson:', error);
+                showNotification('Error saving lesson', 'error');
+            }
+        }
+
+        function editLesson(id) {
+            const lesson = allLessons.find(l => l.id === id);
+            if (lesson) openLessonModal(lesson);
+        }
+
+        async function deleteLesson(id) {
+            if (!confirm('Delete this lesson?')) return;
+
+            try {
+                const { error } = await supabase.from('academy_lessons').delete().eq('id', id);
+                if (error) throw error;
+                showNotification('Lesson deleted!', 'success');
+                loadLessons();
+            } catch (error) {
+                showNotification('Error deleting lesson', 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} mr-2"></i>${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

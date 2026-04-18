@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - EeshaMart | Nigeria's #1 Marketplace</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Centralized Supabase initializer (creates window.supabaseClient and window.supabase) -->
+    <script src="../js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        body {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header (personalized like index.html) -->
+    <header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="../index.html" class="flex items-center gap-2 group">
+                        <div class="w-10 h-10 flex items-center justify-center">
+                            <svg viewBox="0 0 60 60" class="w-full h-full">
+                                <defs>
+                                    <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#fbbf24"/>
+                                        <stop offset="50%" stop-color="#f59e0b"/>
+                                        <stop offset="100%" stop-color="#d97706"/>
+                                    </linearGradient>
+                                    <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                                      fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                                <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                                      fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                                <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                                      fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                                <g transform="translate(52, 8)">
+                                    <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                            <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="hidden md:flex flex-1 max-w-xl mx-8">
+                    <div class="relative w-full">
+                        <input type="text" placeholder="Search products..." id="searchInput"
+                               class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-brand-500">
+                        <button class="absolute right-0 top-0 bottom-0 px-4 bg-brand-500 text-white rounded-r-lg" aria-label="Search">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Links / Auth -->
+                <div class="flex items-center space-x-6" id="auth-links">
+                    <a href="login.html" class="hidden md:block text-gray-600 hover:text-brand-500" id="login-link">
+                        <i class="fas fa-user mr-2"></i>Login
+                    </a>
+                    <a href="signup.html" class="hidden md:block text-gray-600 hover:text-brand-500" id="signup-link">
+                        <i class="fas fa-user-plus mr-2"></i>Sign Up
+                    </a>
+                    <div id="user-menu" class="hidden relative">
+                        <button id="user-menu-button" class="flex items-center space-x-2 text-gray-600 hover:text-brand-500" aria-label="Open user menu">
+                            <i class="fas fa-user-circle text-xl"></i>
+                            <span id="user-email" class="hidden md:block"></span>
+                        </button>
+                        <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1">
+                            <a href="#" id="logout-button" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                        </div>
+                    </div>
+                    <a href="cart.html" class="relative text-gray-600 hover:text-brand-500">
+                        <i class="fas fa-shopping-cart text-xl"></i>
+                        <span id="cartCount" class="absolute -top-2 -right-2 bg-brand-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                    </a>
+                    <button class="md:hidden text-gray-600" id="mobileMenuBtn" aria-label="Toggle mobile menu">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Menu -->
+            <div class="md:hidden hidden" id="mobileMenu">
+                <div class="px-4 py-2 bg-custom-red-50">
+                    <div class="flex flex-col space-y-4" id="mobile-auth-links">
+                        <a href="login.html" class="text-gray-600">Login</a>
+                        <a href="signup.html" class="text-gray-600">Sign Up</a>
+                        <a href="#" id="mobile-logout-button" class="text-gray-600 hidden">Logout</a>
+                        <div class="border-t border-gray-200 pt-2">
+                            <a href="#" class="block py-2 text-gray-600">Electronics</a>
+                            <a href="#" class="block py-2 text-gray-600">Fashion</a>
+                            <a href="#" class="block py-2 text-gray-600">Home & Living</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Product Details -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Loading Skeleton -->
+            <div id="loadingSkeleton" class="animate-pulse">
+                <div class="bg-gray-200 rounded-lg w-full aspect-square mb-4"></div>
+                <div class="grid grid-cols-5 gap-2">
+                    <div class="bg-gray-200 rounded aspect-square"></div>
+                    <div class="bg-gray-200 rounded aspect-square"></div>
+                    <div class="bg-gray-200 rounded aspect-square"></div>
+                    <div class="bg-gray-200 rounded aspect-square"></div>
+                    <div class="bg-gray-200 rounded aspect-square"></div>
+                </div>
+            </div>
+            
+            <!-- Product Images -->
+            <div id="productImagesContainer" class="sticky top-24 hidden">
+                <div class="rounded-lg overflow-hidden mb-4">
+                    <img id="mainImage" src="" alt="Product" class="w-full h-auto object-cover">
+                </div>
+                <div id="thumbnailContainer" class="grid grid-cols-5 gap-2"></div>
+            </div>
+            
+            <!-- Product Info -->
+            <div class="space-y-6">
+                <!-- Loading Text -->
+                <div id="loadingText" class="animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                    <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+                </div>
+
+                <div id="productInfo" class="hidden">
+                    <span id="productCategory" class="text-gray-500 text-sm"></span>
+                    <h1 id="productName" class="text-2xl md:text-3xl font-bold mt-2"></h1>
+                </div>
+
+                <!-- Rating & Reviews -->
+                <div class="flex items-center gap-2" id="productRating">
+                    <div class="text-yellow-400"></div>
+                    <span class="text-gray-600"></span>
+                </div>
+
+                <!-- Price -->
+                <div id="priceSection" class="hidden">
+                    <div class="flex items-baseline gap-4">
+                        <span id="productPrice" class="text-3xl md:text-4xl font-bold text-brand-500"></span>
+                        <span id="originalPrice" class="text-gray-400 line-through text-lg"></span>
+                        <span id="discountBadge" class="bg-brand-500 text-white text-sm px-2 py-1 rounded"></span>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div id="descriptionSection" class="hidden">
+                    <h3 class="font-semibold text-lg mb-2">Description</h3>
+                    <p id="productDescription" class="text-gray-600 leading-relaxed"></p>
+                </div>
+
+                <!-- Quantity Selector -->
+                <div class="flex items-center gap-4">
+                    <span class="font-semibold">Quantity:</span>
+                    <div class="flex items-center border rounded-lg">
+                        <button onclick="decreaseQty()" class="px-4 py-2 hover:bg-gray-100 transition" aria-label="Decrease quantity">-</button>
+                        <span id="quantity" class="px-6 py-2 border-x font-semibold">1</span>
+                        <button onclick="increaseQty()" class="px-4 py-2 hover:bg-gray-100 transition" aria-label="Increase quantity">+</button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-4">
+                    <button onclick="addToCart()" class="flex-1 bg-brand-500 text-white py-3 rounded-lg hover:bg-opacity-90 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-shopping-cart"></i>
+                        Add to Cart
+                    </button>
+                    <button onclick="toggleWishlist()" class="px-4 py-3 border-2 border-brand-500 text-brand-500 rounded-lg hover:bg-brand-500 hover:text-white transition" aria-label="Add to wishlist">
+                        <i class="fas fa-heart"></i>
+                    </button>
+                </div>
+
+                <!-- Shipping & Policy -->
+                <div class="border-t pt-6 space-y-4">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-truck text-brand-500 mt-1"></i>
+                        <div>
+                            <h4 class="font-semibold">Free Shipping</h4>
+                            <p class="text-sm text-gray-600">Estimated delivery: 3-5 business days</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-shield-alt text-brand-500 mt-1"></i>
+                        <div>
+                            <h4 class="font-semibold">Secure Payment</h4>
+                            <p class="text-sm text-gray-600">Safe & secure checkout</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AI Assistant -->
+    <div class="fixed bottom-6 right-6 z-50" id="aiAssistant">
+        <button class="w-14 h-14 bg-brand-500 text-white rounded-full shadow-lg hover:bg-opacity-90 transition" id="aiToggle" aria-label="Open AI assistant">
+            <i class="fas fa-comment-dots text-2xl"></i>
+        </button>
+        <div class="hidden absolute bottom-16 right-0 w-96 bg-white rounded-lg shadow-xl" id="aiChat">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 class="font-semibold text-lg">AI Shopping Assistant</h3>
+                <button class="text-gray-500 hover:text-gray-700" id="aiClose" aria-label="Close AI assistant">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="h-96 p-4 overflow-y-auto" id="aiMessages"></div>
+            <div class="p-4 border-t flex gap-2">
+                <input type="text" id="aiInput" placeholder="Ask me anything..."
+                    class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:border-brand-500">
+                <button id="aiSend" class="bg-brand-500 text-white px-4 py-2 rounded-lg hover:bg-opacity-90" aria-label="Send message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/cart.js"></script>
+    <script src="js/product.js"></script>
+</body>
+</html>

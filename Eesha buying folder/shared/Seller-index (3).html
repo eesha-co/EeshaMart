@@ -1,0 +1,110 @@
+Seller Dashboard (seller.html)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Dashboard</title>
+    <style>
+        /* CSS Styles for Seller Dashboard */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1em;
+            text-align: center;
+        }
+        nav {
+            background-color: #444;
+            padding: 0.5em;
+        }
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+        nav li {
+            margin: 0 1em;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+        }
+        main {
+            padding: 1em;
+        }
+        section {
+            background-color: #fff;
+            padding: 1em;
+            margin-bottom: 1em;
+            border-radius: 5px;
+        }
+        footer {
+            text-align: center;
+            padding: 1em;
+            background-color: #333;
+            color: #fff;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Seller Dashboard</h1>
+    </header>
+    <nav>
+        <ul>
+            <li><a href="#categories">Categories</a></li>
+            <li><a href="#add-products">Add Products</a></li>
+            <li><a href="#product-status">Product Status</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section id="categories">
+            <h2>Manage Categories</h2>
+            <!-- Category creation form will go here -->
+            <form id="categoryForm">
+                <label for="categoryName">Category Name:</label>
+                <input type="text" id="categoryName" name="categoryName"><br><br>
+                <button type="button" onclick="addCategory()">Create Category</button>
+            </form>
+            <div id="categoryList">
+                <!-- Category list will go here -->
+            </div>
+        </section>
+        <section id="add-products">
+            <h2>Add Products</h2>
+            <!-- Product addition form will go here -->
+        </section>
+        <section id="product-status">
+            <h2>Product Status</h2>
+            <!-- Product status display will go here -->
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 E-commerce Platform</p>
+    </footer>
+    <script>
+        // JavaScript for Seller Dashboard
+        function addCategory() {
+            const categoryName = document.getElementById('categoryName').value;
+            if (categoryName) {
+                const categoryList = document.getElementById('categoryList');
+                const newCategory = document.createElement('p');
+                newCategory.textContent = categoryName;
+                categoryList.appendChild(newCategory);
+                document.getElementById('categoryName').value = '';
+            }
+        }
+    </script>
+</body>
+</html>

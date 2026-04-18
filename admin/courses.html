@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Courses - EeshaMart Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f97316',
+                        secondary: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        
+        .sidebar { width: 260px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #94a3b8; text-decoration: none; transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(249, 115, 22, 0.1); color: #f97316; border-left-color: #f97316; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        
+        @media (max-width: 1024px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+        }
+        
+        .modal { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .course-card { transition: all 0.3s ease; }
+        .course-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold">EeshaMart</h1>
+                    <p class="text-gray-400 text-sm">Admin Dashboard</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="py-4">
+            <a href="index.html" class="sidebar-link">
+                <i class="fas fa-home w-5"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="courses.html" class="sidebar-link active">
+                <i class="fas fa-book w-5"></i>
+                <span>Courses</span>
+            </a>
+            <a href="lessons.html" class="sidebar-link">
+                <i class="fas fa-video w-5"></i>
+                <span>Lessons</span>
+            </a>
+            <a href="live-sessions.html" class="sidebar-link">
+                <i class="fas fa-broadcast-tower w-5"></i>
+                <span>Live Sessions</span>
+            </a>
+            <a href="sellers.html" class="sidebar-link">
+                <i class="fas fa-users w-5"></i>
+                <span>Sellers</span>
+            </a>
+            <a href="analytics.html" class="sidebar-link">
+                <i class="fas fa-chart-bar w-5"></i>
+                <span>Analytics</span>
+            </a>
+            <a href="settings.html" class="sidebar-link">
+                <i class="fas fa-cog w-5"></i>
+                <span>Settings</span>
+            </a>
+            
+            <div class="mt-4 px-5">
+                <button onclick="logout()" class="sidebar-link w-full text-left">
+                    <i class="fas fa-sign-out-alt w-5"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content p-6">
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-bars text-gray-600"></i>
+                </button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Courses</h1>
+                    <p class="text-gray-500 text-sm">Create and manage learning courses</p>
+                </div>
+            </div>
+            <button onclick="openCourseModal()" class="bg-orange-500 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Create Course
+            </button>
+        </header>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl p-4 mb-6 flex flex-wrap items-center gap-4 border border-gray-100">
+            <div class="flex-1 min-w-[200px]">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchInput" placeholder="Search courses..." 
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-500"
+                           oninput="filterCourses()">
+                </div>
+            </div>
+            <select id="levelFilter" onchange="filterCourses()" class="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500">
+                <option value="">All Levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+            </select>
+            <select id="statusFilter" onchange="filterCourses()" class="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-500">
+                <option value="">All Status</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+            </select>
+        </div>
+
+        <!-- Courses Grid -->
+        <div id="coursesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Courses loaded dynamically -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <i class="fas fa-spinner fa-spin text-orange-500 text-3xl mb-3"></i>
+            <p class="text-gray-500">Loading courses...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-12">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-book text-gray-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No courses yet</h3>
+            <p class="text-gray-500 mb-4">Create your first course to start teaching sellers</p>
+            <button onclick="openCourseModal()" class="bg-orange-500 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                <i class="fas fa-plus mr-2"></i>Create First Course
+            </button>
+        </div>
+    </main>
+
+    <!-- Course Modal -->
+    <div id="courseModal" class="modal hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-900">Create Course</h2>
+                <button onclick="closeCourseModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-times text-gray-500"></i>
+                </button>
+            </div>
+            
+            <form id="courseForm" onsubmit="saveCourse(event)" class="p-6 space-y-4">
+                <input type="hidden" id="courseId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Course Title *</label>
+                    <input type="text" id="courseTitle" required
+                           class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500"
+                           placeholder="e.g., Product Photography Masterclass">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="courseDescription" rows="3"
+                              class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500"
+                              placeholder="What will sellers learn from this course?"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                        <select id="courseLevel" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500">
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select id="courseCategory" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500">
+                            <option value="Marketing">Marketing</option>
+                            <option value="Branding">Branding</option>
+                            <option value="Business">Business</option>
+                            <option value="Service">Customer Service</option>
+                            <option value="Packaging">Packaging</option>
+                            <option value="Farming">Farming</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
+                        <input type="url" id="courseThumbnail"
+                               class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500"
+                               placeholder="https://...">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                        <input type="number" id="courseDuration"
+                               class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:border-orange-500"
+                               placeholder="45" min="1">
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="coursePublished" class="w-5 h-5 rounded border-gray-300 text-orange-500 focus:ring-orange-500">
+                    <label for="coursePublished" class="text-sm text-gray-700">Publish immediately</label>
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeCourseModal()" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 bg-orange-500 text-white py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Save Course
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let allCourses = [];
+
+        // Check auth
+        (function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (!isLoggedIn) window.location.href = 'login.html';
+        })();
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => loadCourses());
+
+        async function loadCourses() {
+            try {
+                const { data, error } = await supabase
+                    .from('academy_courses')
+                    .select('*')
+                    .order('order_index', { ascending: true });
+
+                if (error) throw error;
+                
+                allCourses = data || [];
+                renderCourses(allCourses);
+            } catch (error) {
+                console.error('Error loading courses:', error);
+                document.getElementById('loadingState').innerHTML = '<p class="text-red-500">Error loading courses. Please check database connection.</p>';
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        function renderCourses(courses) {
+            const grid = document.getElementById('coursesGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            if (courses.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = courses.map(course => `
+                <div class="course-card bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <div class="relative h-32">
+                        <img src="${course.thumbnail_url || 'https://via.placeholder.com/400x200?text=Course'}" 
+                             alt="${course.title}" class="w-full h-full object-cover">
+                        <div class="absolute top-2 right-2 flex gap-1">
+                            <span class="text-xs px-2 py-1 rounded-full ${course.is_published ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}">
+                                ${course.is_published ? 'Published' : 'Draft'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full capitalize">${course.level}</span>
+                            <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${course.category || 'General'}</span>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-1">${course.title}</h3>
+                        <p class="text-sm text-gray-500 mb-3 line-clamp-2">${course.description || 'No description'}</p>
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span><i class="fas fa-clock mr-1"></i>${course.duration_minutes || 0} mins</span>
+                            <span><i class="fas fa-users mr-1"></i>0 enrolled</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editCourse('${course.id}')" class="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <a href="lessons.html?course=${course.id}" class="flex-1 bg-orange-100 text-orange-600 py-2 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors text-center">
+                                <i class="fas fa-video mr-1"></i>Lessons
+                            </a>
+                            <button onclick="deleteCourse('${course.id}')" class="bg-red-100 text-red-600 py-2 px-3 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterCourses() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const level = document.getElementById('levelFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            let filtered = allCourses;
+
+            if (search) {
+                filtered = filtered.filter(c => 
+                    c.title.toLowerCase().includes(search) || 
+                    (c.description && c.description.toLowerCase().includes(search))
+                );
+            }
+
+            if (level) {
+                filtered = filtered.filter(c => c.level === level);
+            }
+
+            if (status === 'published') {
+                filtered = filtered.filter(c => c.is_published);
+            } else if (status === 'draft') {
+                filtered = filtered.filter(c => !c.is_published);
+            }
+
+            renderCourses(filtered);
+        }
+
+        function openCourseModal(course = null) {
+            document.getElementById('modalTitle').textContent = course ? 'Edit Course' : 'Create Course';
+            document.getElementById('courseForm').reset();
+            document.getElementById('courseId').value = course?.id || '';
+            
+            if (course) {
+                document.getElementById('courseTitle').value = course.title || '';
+                document.getElementById('courseDescription').value = course.description || '';
+                document.getElementById('courseLevel').value = course.level || 'beginner';
+                document.getElementById('courseCategory').value = course.category || 'Marketing';
+                document.getElementById('courseThumbnail').value = course.thumbnail_url || '';
+                document.getElementById('courseDuration').value = course.duration_minutes || '';
+                document.getElementById('coursePublished').checked = course.is_published || false;
+            }
+
+            document.getElementById('courseModal').classList.remove('hidden');
+            document.getElementById('courseModal').classList.add('flex');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').classList.add('hidden');
+            document.getElementById('courseModal').classList.remove('flex');
+        }
+
+        async function saveCourse(event) {
+            event.preventDefault();
+            
+            const courseId = document.getElementById('courseId').value;
+            const courseData = {
+                title: document.getElementById('courseTitle').value,
+                description: document.getElementById('courseDescription').value,
+                level: document.getElementById('courseLevel').value,
+                category: document.getElementById('courseCategory').value,
+                thumbnail_url: document.getElementById('courseThumbnail').value,
+                duration_minutes: parseInt(document.getElementById('courseDuration').value) || 0,
+                is_published: document.getElementById('coursePublished').checked,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                if (courseId) {
+                    // Update
+                    const { error } = await supabase
+                        .from('academy_courses')
+                        .update(courseData)
+                        .eq('id', courseId);
+                    if (error) throw error;
+                    showNotification('Course updated successfully!', 'success');
+                } else {
+                    // Create
+                    courseData.created_at = new Date().toISOString();
+                    const { error } = await supabase
+                        .from('academy_courses')
+                        .insert([courseData]);
+                    if (error) throw error;
+                    showNotification('Course created successfully!', 'success');
+                }
+
+                closeCourseModal();
+                loadCourses();
+            } catch (error) {
+                console.error('Error saving course:', error);
+                showNotification('Error saving course. Please try again.', 'error');
+            }
+        }
+
+        async function editCourse(id) {
+            const course = allCourses.find(c => c.id === id);
+            if (course) openCourseModal(course);
+        }
+
+        async function deleteCourse(id) {
+            if (!confirm('Are you sure you want to delete this course? This will also delete all lessons.')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('academy_courses')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+                showNotification('Course deleted successfully!', 'success');
+                loadCourses();
+            } catch (error) {
+                console.error('Error deleting course:', error);
+                showNotification('Error deleting course.', 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} mr-2"></i>${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

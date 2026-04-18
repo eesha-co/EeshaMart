@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - EeshaMart Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f97316',
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 50;
+        }
+        
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            color: #94a3b8;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-link:hover, .sidebar-link.active {
+            background: rgba(249, 115, 22, 0.1);
+            color: #f97316;
+            border-left-color: #f97316;
+        }
+        
+        .main-content {
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+        
+        @media (max-width: 1024px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold">EeshaMart</h1>
+                    <p class="text-gray-400 text-sm">Admin Dashboard</p>
+                </div>
+            </div>
+        
+        <nav class="py-4">
+                <a href="index.html" class="sidebar-link active">
+                    <i class="fas fa-home w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="courses.html" class="sidebar-link">
+                    <i class="fas fa-book w-5"></i>
+                    <span>Courses</span>
+                </a>
+                <a href="lessons.html" class="sidebar-link">
+                    <i class="fas fa-video w-5"></i>
+                    <span>Lessons</span>
+                </a>
+                <a href="live-sessions.html" class="sidebar-link">
+                    <i class="fas fa-broadcast-tower w-5"></i>
+                    <span>Live Sessions</span>
+                </a>
+                <a href="sellers.html" class="sidebar-link">
+                    <i class="fas fa-users w-5"></i>
+                    <span>Sellers</span>
+                </a>
+                <a href="analytics.html" class="sidebar-link">
+                    <i class="fas fa-chart-bar w-5"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="settings.html" class="sidebar-link">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+                
+                <div class="mt-4 px-5">
+                    <button onclick="logout()" class="sidebar-link w-full text-left">
+                        <i class="fas fa-sign-out-alt w-5"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </nav>
+        </aside>
+
+    <!-- Main Content -->
+    <main class="main-content p-6">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+                    <i class="fas fa-bars text-gray-600"></i>
+                </button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+                    <p class="text-gray-500 text-sm">Welcome back,                    <span id="adminName" class="font-medium">Admin</span>!
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="currentDateTime" class="text-sm text-gray-500"></span>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total Courses</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalCourses">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-book text-blue-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-green-500 mt-2"><i class="fas fa-arrow-up mr-1"></i><span id="publishedCourses">0</span> published</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Live Sessions</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalSessions">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-broadcast-tower text-red-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-red-500 mt-2"><span class="pulse-dot inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span><span id="liveNow">0</span> live now</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total Sellers</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalSellers">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-users text-green-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-green-500 mt-2"><i class="fas fa-arrow-up mr-1"></i><span id="newSellers">0</span> this week</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Enrollments</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalEnrollments">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-purple-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-purple-500 mt-2"><i class="fas fa-arrow-up mr-1"></i><span id="certificatesIssued">0</span> certificates</p>
+            </div>
+        </div>
+
+        <!-- Live Now Banner -->
+        <div id="liveNowBanner" class="hidden bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl p-6 mb-6 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-broadcast-tower text-xl pulse-dot"></i>
+                    </div>
+                    <div>
+                        <p class="text-white/80 text-sm">Session in progress</p>
+                        <h2 class="text-xl font-bold" id="currentLiveSession">Loading...</h2>
+                        <p class="text-white/80 text-sm" id="currentLiveViewers">0 viewers</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <a href="live-sessions.html" class="bg-white text-orange-500 px-4 py-2 rounded-xl font-medium hover:bg-orange-50 transition-colors">
+                        <i class="fas fa-external-link-alt mr-2"></i>View Session
+                    </a>
+                    <button onclick="endLiveSession()" class="bg-white/20 text-white px-4 py-2 rounded-xl font-medium hover:bg-white/30 transition-colors">
+                        <i class="fas fa-stop mr-2"></i>End Session
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <a href="courses.html" class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-shadow flex items-center gap-4">
+                <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-plus text-orange-500 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Create Course</h3>
+                    <p class="text-sm text-gray-500">Add a new learning course</p>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+            </a>
+            
+            <a href="live-sessions.html" class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-shadow flex items-center gap-4">
+                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-video text-red-500 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Start Live Session</h3>
+                    <p class="text-sm text-gray-500">Host a live training session</p>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+            </a>
+            
+            <a href="sellers.html" class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-shadow flex items-center gap-4">
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-user-plus text-green-500 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Manage Sellers</h3>
+                    <p class="text-sm text-gray-500">View and manage all sellers</p>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400 ml-auto"></i>
+            </a>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Recent Courses -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-900">Recent Courses</h3>
+                    <a href="courses.html" class="text-sm text-orange-500 hover:underline">View all</a>
+                </div>
+                <div class="p-5" id="recentCoursesList">
+                    <p class="text-gray-500 text-sm">Loading...</p>
+                </div>
+            </div>
+            
+            <!-- Upcoming Sessions -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-900">Upcoming Sessions</h3>
+                    <a href="live-sessions.html" class="text-sm text-orange-500 hover:underline">View all</a>
+                </div>
+                <div class="p-5" id="upcomingSessionsList">
+                    <p class="text-gray-500 text-sm">Loading...</p>
+                </div>
+            </div>
+            
+            <!-- Recent Enrollments -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100">
+                    <h3 class="font-semibold text-gray-900">Recent Enrollments</h3>
+                </div>
+                <div class="p-5" id="recentEnrollmentsList">
+                    <p class="text-gray-500 text-sm">Loading...</p>
+                </div>
+            </div>
+            
+            <!-- Recent Sellers -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100">
+                    <h3 class="font-semibold text-gray-900">Recent Sellers</h3>
+                </div>
+                <div class="p-5" id="recentSellersList">
+                    <p class="text-gray-500 text-sm">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check auth
+        (function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (!isLoggedIn) {
+                window.location.href = 'login.html';
+            }
+        })();
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+            updateDateTime();
+            setInterval(updateDateTime, 60000);
+        });
+
+        function updateDateTime() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        async function loadDashboardData() {
+            try {
+                // Load courses count
+                const { count: coursesCount } = await supabase
+                    .from('academy_courses')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('totalCourses').textContent = coursesCount || 0;
+
+                const { count: publishedCount } = await supabase
+                    .from('academy_courses')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_published', true);
+                document.getElementById('publishedCourses').textContent = publishedCount || 0;
+
+                // Load sessions count
+                const { count: sessionsCount } = await supabase
+                    .from('academy_live_sessions')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('totalSessions').textContent = sessionsCount || 0;
+
+                // Load live sessions
+                const { data: liveSessions } = await supabase
+                    .from('academy_live_sessions')
+                    .select('*')
+                    .eq('is_live', true);
+                document.getElementById('liveNow').textContent = liveSessions?.length || 0;
+
+                // Load sellers count
+                const { count: sellersCount } = await supabase
+                    .from('sellers')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('totalSellers').textContent = sellersCount || 0;
+
+                // Load enrollments count
+                const { count: enrollmentsCount } = await supabase
+                    .from('academy_enrollments')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('totalEnrollments').textContent = enrollmentsCount || 0;
+
+                // Load certificates count
+                const { count: certificatesCount } = await supabase
+                    .from('academy_certificates')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('certificatesIssued').textContent = certificatesCount || 0;
+
+                // Load recent courses
+                const { data: recentCourses } = await supabase
+                    .from('academy_courses')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                renderRecentCourses(recentCourses);
+
+                // Load upcoming sessions
+                const { data: upcomingSessions } = await supabase
+                    .from('academy_live_sessions')
+                    .select('*')
+                    .eq('is_completed', false)
+                    .order('scheduled_at', { ascending: true })
+                    .limit(5);
+                renderUpcomingSessions(upcomingSessions);
+
+                // Check for live session
+                if (liveSessions && liveSessions.length > 0) {
+                    const live = liveSessions[0];
+                    document.getElementById('liveNowBanner').classList.remove('hidden');
+                    document.getElementById('currentLiveSession').textContent = live.title;
+                }
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        function renderRecentCourses(courses) {
+            const container = document.getElementById('recentCoursesList');
+            if (!courses || courses.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No courses yet</p>';
+                return;
+            }
+            container.innerHTML = courses.map(course => `
+                <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div class="w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
+                        <img src="${course.thumbnail_url || 'https://via.placeholder.com/40'}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 truncate">${course.title}</p>
+                        <p class="text-xs text-gray-500 capitalize">${course.level} • ${course.category || 'General'}</p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded-full ${course.is_published ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}">
+                        ${course.is_published ? 'Published' : 'Draft'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function renderUpcomingSessions(sessions) {
+            const container = document.getElementById('upcomingSessionsList');
+            if (!sessions || sessions.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No upcoming sessions</p>';
+                return;
+            }
+            container.innerHTML = sessions.map(session => `
+                <div class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                        <i class="fas fa-calendar text-orange-500"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 truncate">${session.title}</p>
+                        <p class="text-xs text-gray-500">${new Date(session.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded-full ${session.is_live ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}">
+                        ${session.is_live ? 'LIVE' : 'Scheduled'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        async function endLiveSession() {
+            if (!confirm('Are you sure you want to end the live session?')) return;
+            
+            const { error } = await supabase
+                .from('academy_live_sessions')
+                .update({ is_live: false, is_completed: true })
+                .eq('is_live', true);
+            
+            if (!error) {
+                location.reload();
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            sessionStorage.removeItem('adminEmail');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

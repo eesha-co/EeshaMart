@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - EeshaMart Academy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { primary: '#f97316', secondary: '#1e293b' } } }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        .sidebar { width: 260px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #94a3b8; text-decoration: none; transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(249, 115, 22, 0.1); color: #f97316; border-left-color: #f97316; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold">EeshaMart</h1>
+                    <p class="text-gray-400 text-sm">Admin Dashboard</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="py-4">
+            <a href="index.html" class="sidebar-link"><i class="fas fa-home w-5"></i><span>Dashboard</span></a>
+            <a href="courses.html" class="sidebar-link"><i class="fas fa-book w-5"></i><span>Courses</span></a>
+            <a href="lessons.html" class="sidebar-link"><i class="fas fa-video w-5"></i><span>Lessons</span></a>
+            <a href="live-sessions.html" class="sidebar-link"><i class="fas fa-broadcast-tower w-5"></i><span>Live Sessions</span></a>
+            <a href="sellers.html" class="sidebar-link"><i class="fas fa-users w-5"></i><span>Sellers</span></a>
+            <a href="analytics.html" class="sidebar-link active"><i class="fas fa-chart-bar w-5"></i><span>Analytics</span></a>
+            <a href="settings.html" class="sidebar-link"><i class="fas fa-cog w-5"></i><span>Settings</span></a>
+            <div class="mt-4 px-5">
+                <button onclick="logout()" class="sidebar-link w-full text-left"><i class="fas fa-sign-out-alt w-5"></i><span>Logout</span></button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content p-6">
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-bars text-gray-600"></i></button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Analytics</h1>
+                    <p class="text-gray-500 text-sm">Track academy performance and engagement</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <select id="timeRange" onchange="loadAnalytics()" class="border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-orange-500">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total Enrollments</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalEnrollments">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-user-graduate text-blue-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-green-500 mt-2"><i class="fas fa-arrow-up mr-1"></i><span id="newEnrollments">0</span> this period</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Course Completions</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalCompletions">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-green-500 mt-2"><span id="completionRate">0</span>% completion rate</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Live Sessions</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalSessions">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-broadcast-tower text-red-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2"><span id="avgAttendees">0</span> avg attendees</p>
+            </div>
+            
+            <div class="stat-card bg-white rounded-2xl p-5 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Certificates</p>
+                        <p class="text-3xl font-bold text-gray-900" id="totalCertificates">0</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-certificate text-orange-500 text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-green-500 mt-2"><i class="fas fa-arrow-up mr-1"></i><span id="newCerts">0</span> this period</p>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Enrollments Over Time -->
+            <div class="bg-white rounded-2xl border border-gray-100 p-5">
+                <h3 class="font-semibold text-gray-900 mb-4">Enrollments Over Time</h3>
+                <canvas id="enrollmentsChart" height="200"></canvas>
+            </div>
+            
+            <!-- Course Popularity -->
+            <div class="bg-white rounded-2xl border border-gray-100 p-5">
+                <h3 class="font-semibold text-gray-900 mb-4">Course Popularity</h3>
+                <canvas id="coursesChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- More Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- User Types -->
+            <div class="bg-white rounded-2xl border border-gray-100 p-5">
+                <h3 class="font-semibold text-gray-900 mb-4">Learners by Type</h3>
+                <canvas id="userTypesChart" height="200"></canvas>
+            </div>
+            
+            <!-- Progress Distribution -->
+            <div class="bg-white rounded-2xl border border-gray-100 p-5">
+                <h3 class="font-semibold text-gray-900 mb-4">Progress Distribution</h3>
+                <canvas id="progressChart" height="200"></canvas>
+            </div>
+            
+            <!-- Session Attendance -->
+            <div class="bg-white rounded-2xl border border-gray-100 p-5">
+                <h3 class="font-semibold text-gray-900 mb-4">Session Attendance</h3>
+                <canvas id="attendanceChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Performers & Recent Activity -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Top Courses -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100">
+                    <h3 class="font-semibold text-gray-900">Top Performing Courses</h3>
+                </div>
+                <div id="topCourses" class="divide-y divide-gray-50">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div class="p-5 border-b border-gray-100">
+                    <h3 class="font-semibold text-gray-900">Recent Activity</h3>
+                </div>
+                <div id="recentActivity" class="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let charts = {};
+
+        // Auth check
+        (function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (!isLoggedIn) window.location.href = 'login.html';
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => loadAnalytics());
+
+        async function loadAnalytics() {
+            const days = parseInt(document.getElementById('timeRange').value);
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            try {
+                // Load all data
+                const [enrollmentsRes, coursesRes, sessionsRes, certsRes, sellersRes, progressRes] = await Promise.all([
+                    supabase.from('academy_enrollments').select('*, academy_courses(title), sellers(seller_type)').gte('enrolled_at', startDate.toISOString()),
+                    supabase.from('academy_courses').select('*, academy_enrollments(count)'),
+                    supabase.from('academy_live_sessions').select('*'),
+                    supabase.from('academy_certificates').select('*').gte('issued_at', startDate.toISOString()),
+                    supabase.from('sellers').select('*'),
+                    supabase.from('academy_enrollments').select('*')
+                ]);
+
+                const enrollments = enrollmentsRes.data || [];
+                const courses = coursesRes.data || [];
+                const sessions = sessionsRes.data || [];
+                const certificates = certsRes.data || [];
+                const sellers = sellersRes.data || [];
+                const allProgress = progressRes.data || [];
+
+                // Update stats
+                document.getElementById('totalEnrollments').textContent = allProgress.length;
+                document.getElementById('newEnrollments').textContent = enrollments.length;
+                
+                const completions = allProgress.filter(e => e.progress_percentage === 100).length;
+                document.getElementById('totalCompletions').textContent = completions;
+                document.getElementById('completionRate').textContent = allProgress.length > 0 
+                    ? Math.round((completions / allProgress.length) * 100) : 0;
+
+                document.getElementById('totalSessions').textContent = sessions.length;
+                const registrations = await supabase.from('academy_session_registrations').select('*');
+                document.getElementById('avgAttendees').textContent = sessions.length > 0 
+                    ? Math.round((registrations.data?.length || 0) / sessions.length) : 0;
+
+                document.getElementById('totalCertificates').textContent = certificates.length;
+                document.getElementById('newCerts').textContent = certificates.length;
+
+                // Render charts
+                renderEnrollmentsChart(enrollments, days);
+                renderCoursesChart(courses);
+                renderUserTypesChart(sellers);
+                renderProgressChart(allProgress);
+                renderAttendanceChart(sessions, registrations.data || []);
+
+                // Render top courses
+                renderTopCourses(courses);
+
+                // Render recent activity
+                renderRecentActivity(enrollments, certificates);
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        function renderEnrollmentsChart(enrollments, days) {
+            const ctx = document.getElementById('enrollmentsChart').getContext('2d');
+            
+            if (charts.enrollments) charts.enrollments.destroy();
+
+            // Group by date
+            const data = {};
+            for (let i = 0; i < days; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const key = date.toISOString().split('T')[0];
+                data[key] = 0;
+            }
+
+            enrollments.forEach(e => {
+                const key = e.enrolled_at?.split('T')[0];
+                if (key && data.hasOwnProperty(key)) {
+                    data[key]++;
+                }
+            });
+
+            const labels = Object.keys(data).sort().map(d => {
+                const date = new Date(d);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+
+            charts.enrollments = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Enrollments',
+                        data: Object.values(data).reverse(),
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderCoursesChart(courses) {
+            const ctx = document.getElementById('coursesChart').getContext('2d');
+            
+            if (charts.courses) charts.courses.destroy();
+
+            const sorted = courses.sort((a, b) => (b.academy_enrollments?.[0]?.count || 0) - (a.academy_enrollments?.[0]?.count || 0)).slice(0, 5);
+            const labels = sorted.map(c => c.title?.substring(0, 20) + (c.title?.length > 20 ? '...' : ''));
+            const data = sorted.map(c => c.academy_enrollments?.[0]?.count || 0);
+
+            charts.courses = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Enrollments',
+                        data,
+                        backgroundColor: ['#f97316', '#fbbf24', '#22c55e', '#3b82f6', '#8b5cf6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderUserTypesChart(sellers) {
+            const ctx = document.getElementById('userTypesChart').getContext('2d');
+            
+            if (charts.userTypes) charts.userTypes.destroy();
+
+            const merchants = sellers.filter(s => s.seller_type !== 'farmer').length;
+            const farmers = sellers.filter(s => s.seller_type === 'farmer').length;
+
+            charts.userTypes = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Merchants', 'Farmers'],
+                    datasets: [{
+                        data: [merchants, farmers],
+                        backgroundColor: ['#3b82f6', '#22c55e']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function renderProgressChart(progress) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            
+            if (charts.progress) charts.progress.destroy();
+
+            const notStarted = progress.filter(e => !e.progress_percentage || e.progress_percentage === 0).length;
+            const inProgress = progress.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100).length;
+            const completed = progress.filter(e => e.progress_percentage === 100).length;
+
+            charts.progress = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Not Started', 'In Progress', 'Completed'],
+                    datasets: [{
+                        data: [notStarted, inProgress, completed],
+                        backgroundColor: ['#e5e7eb', '#fbbf24', '#22c55e']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function renderAttendanceChart(sessions, registrations) {
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            
+            if (charts.attendance) charts.attendance.destroy();
+
+            const labels = sessions.slice(-5).map(s => s.title?.substring(0, 15) + '...');
+            const data = sessions.slice(-5).map(s => {
+                return registrations.filter(r => r.session_id === s.id).length;
+            });
+
+            charts.attendance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Registrations',
+                        data,
+                        backgroundColor: '#f97316'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderTopCourses(courses) {
+            const container = document.getElementById('topCourses');
+            const sorted = courses.sort((a, b) => (b.academy_enrollments?.[0]?.count || 0) - (a.academy_enrollments?.[0]?.count || 0)).slice(0, 5);
+
+            if (sorted.length === 0) {
+                container.innerHTML = '<p class="p-5 text-gray-500 text-center">No courses yet</p>';
+                return;
+            }
+
+            container.innerHTML = sorted.map((course, i) => `
+                <div class="p-4 flex items-center gap-4">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-gray-300'}">
+                        ${i + 1}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 truncate">${course.title}</p>
+                        <p class="text-sm text-gray-500">${course.level} • ${course.category || 'General'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-gray-900">${course.academy_enrollments?.[0]?.count || 0}</p>
+                        <p class="text-xs text-gray-500">enrolled</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderRecentActivity(enrollments, certificates) {
+            const container = document.getElementById('recentActivity');
+            const activities = [
+                ...enrollments.map(e => ({
+                    type: 'enrollment',
+                    date: e.enrolled_at,
+                    title: `New enrollment: ${e.academy_courses?.title || 'Course'}`
+                })),
+                ...certificates.map(c => ({
+                    type: 'certificate',
+                    date: c.issued_at,
+                    title: `Certificate issued`
+                }))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+
+            if (activities.length === 0) {
+                container.innerHTML = '<p class="p-5 text-gray-500 text-center">No recent activity</p>';
+                return;
+            }
+
+            container.innerHTML = activities.map(a => `
+                <div class="p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg ${a.type === 'enrollment' ? 'bg-blue-100' : 'bg-orange-100'} flex items-center justify-center">
+                        <i class="fas ${a.type === 'enrollment' ? 'fa-user-graduate text-blue-500' : 'fa-certificate text-orange-500'}"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-900 truncate">${a.title}</p>
+                        <p class="text-xs text-gray-500">${a.date ? new Date(a.date).toLocaleDateString() : 'Recently'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

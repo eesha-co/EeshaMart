@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harvest Schedule - Farmer Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <script src="../js/loader.js"></script>
+    <script>
+        // Auth check
+        (async function checkAuth() {
+            try {
+                const { data: { session }, error } = await window.supabase.auth.getSession();
+                if (error || !session) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --primary-color: #059669;
+            --primary-light: #10B981;
+            --primary-dark: #047857;
+            --secondary-color: #065f46;
+            --dark-color: #14532d;
+            --warning-color: #eab308;
+            --danger-color: #dc3545;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0fdf4;
+            min-height: 100vh;
+        }
+
+        .harvest-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 2rem;
+            color: var(--dark-color);
+        }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .add-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .add-btn:hover { background: var(--primary-dark); }
+
+        /* Calendar */
+        .calendar-section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .calendar-nav button {
+            background: #f0fdf4;
+            border: 1px solid #d1fae5;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--primary-color);
+            transition: all 0.3s;
+        }
+
+        .calendar-nav button:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+
+        .calendar-day-header {
+            text-align: center;
+            padding: 0.5rem;
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .calendar-day:hover { background: #f0fdf4; border-color: var(--primary-color); }
+        .calendar-day.today { background: #fef3c7; border-color: var(--warning-color); }
+        .calendar-day.has-harvest { background: #d1fae5; border-color: var(--primary-color); }
+
+        .calendar-day .day-number { font-weight: 600; color: var(--dark-color); }
+        .calendar-day .harvest-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Upcoming Harvests */
+        .upcoming-section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        .upcoming-section h2 {
+            font-size: 1.25rem;
+            color: var(--dark-color);
+            margin-bottom: 1rem;
+        }
+
+        .harvest-list { display: flex; flex-direction: column; gap: 1rem; }
+
+        .harvest-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 2px solid #d1fae5;
+            transition: all 0.3s;
+        }
+
+        .harvest-item:hover { border-color: var(--primary-color); }
+        .harvest-item.urgent { border-color: var(--danger-color); background: #fef2f2; }
+        .harvest-item.soon { border-color: var(--warning-color); background: #fefce8; }
+
+        .harvest-date {
+            width: 60px;
+            text-align: center;
+            padding: 0.5rem;
+            background: #f0fdf4;
+            border-radius: 8px;
+        }
+
+        .harvest-date .day { font-size: 1.5rem; font-weight: 700; color: var(--dark-color); }
+        .harvest-date .month { font-size: 0.75rem; color: #6b7280; }
+
+        .harvest-info { flex: 1; }
+        .harvest-info h3 { color: var(--dark-color); margin-bottom: 0.25rem; }
+        .harvest-info p { color: #6b7280; font-size: 0.875rem; }
+
+        .harvest-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .harvest-actions button {
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .harvest-actions button:hover { background: #f0f0f0; }
+        .harvest-actions .edit-btn { color: var(--primary-color); }
+        .harvest-actions .delete-btn { color: var(--danger-color); }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.urgent { background: #fef2f2; color: #991b1b; }
+        .status-badge.soon { background: #fefce8; color: #92400e; }
+        .status-badge.normal { background: #d1fae5; color: #065f46; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 { color: var(--dark-color); }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .form-group { margin-bottom: 1rem; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #d1fae5;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .submit-btn:hover { background: var(--primary-dark); }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .empty-state i { font-size: 4rem; margin-bottom: 1rem; opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="harvest-container">
+        <div class="page-header">
+            <div>
+                <a href="index.html" class="back-link">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Dashboard
+                </a>
+                <h1 style="margin-top: 0.5rem;"><i class="fas fa-calendar-alt mr-2"></i>Harvest Schedule</h1>
+            </div>
+            <button class="add-btn" onclick="openModal()">
+                <i class="fas fa-plus"></i>
+                Add Harvest
+            </button>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar-section">
+            <div class="calendar-header">
+                <h2 id="currentMonth">January 2025</h2>
+                <div class="calendar-nav">
+                    <button onclick="prevMonth()"><i class="fas fa-chevron-left"></i></button>
+                    <button onclick="nextMonth()"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Calendar will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Upcoming Harvests -->
+        <div class="upcoming-section">
+            <h2><i class="fas fa-seedling mr-2"></i>Upcoming Harvests</h2>
+            <div class="harvest-list" id="harvestList">
+                <div class="empty-state">
+                    <i class="fas fa-calendar-plus"></i>
+                    <p>No harvests scheduled</p>
+                    <p>Add your first harvest to start planning</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Harvest Modal -->
+    <div class="modal" id="harvestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Harvest</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="harvestForm" onsubmit="saveHarvest(event)">
+                <input type="hidden" id="harvestId">
+                <div class="form-group">
+                    <label for="cropName">Crop Name *</label>
+                    <input type="text" id="cropName" required placeholder="e.g., Rice, Maize, Tomatoes">
+                </div>
+                <div class="form-group">
+                    <label for="harvestDate">Expected Harvest Date *</label>
+                    <input type="date" id="harvestDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Expected Quantity</label>
+                    <input type="number" id="quantity" placeholder="e.g., 100">
+                </div>
+                <div class="form-group">
+                    <label for="unit">Unit</label>
+                    <select id="unit">
+                        <option value="bags">Bags (50kg)</option>
+                        <option value="kg">Kilograms</option>
+                        <option value="tons">Tonnes</option>
+                        <option value="crates">Crates</option>
+                        <option value="baskets">Baskets</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" rows="3" placeholder="Any additional notes..."></textarea>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-save mr-2"></i>Save Harvest
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let supabase;
+        let currentUser = null;
+        let harvests = [];
+        let currentDate = new Date();
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            supabase = window.supabase;
+
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+
+            await loadHarvests();
+            renderCalendar();
+        });
+
+        async function loadHarvests() {
+            const { data, error } = await supabase
+                .from('harvests')
+                .select('*')
+                .eq('seller_id', currentUser.id)
+                .order('harvest_date', { ascending: true });
+
+            if (!error) {
+                harvests = data || [];
+                renderHarvestList();
+            }
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            // Update header
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            document.getElementById('currentMonth').textContent = `${months[month]} ${year}`;
+
+            // Get first day and days in month
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            let html = '';
+            
+            // Day headers
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayNames.forEach(day => {
+                html += `<div class="calendar-day-header">${day}</div>`;
+            });
+
+            // Empty cells before first day
+            for (let i = 0; i < firstDay; i++) {
+                html += `<div class="calendar-day" style="background: #f9fafb; cursor: default;"></div>`;
+            }
+
+            // Days of month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dateStr = date.toISOString().split('T')[0];
+                const isToday = date.toDateString() === today.toDateString();
+                const hasHarvest = harvests.some(h => h.harvest_date === dateStr);
+
+                html += `
+                    <div class="calendar-day ${isToday ? 'today' : ''} ${hasHarvest ? 'has-harvest' : ''}" 
+                         onclick="selectDate('${dateStr}')">
+                        <span class="day-number">${day}</span>
+                        ${hasHarvest ? '<span class="harvest-dot"></span>' : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('calendarGrid').innerHTML = html;
+        }
+
+        function prevMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function selectDate(dateStr) {
+            document.getElementById('harvestDate').value = dateStr;
+            openModal();
+        }
+
+        function renderHarvestList() {
+            const container = document.getElementById('harvestList');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (harvests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-plus"></i>
+                        <p>No harvests scheduled</p>
+                        <p>Add your first harvest to start planning</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const upcoming = harvests.filter(h => new Date(h.harvest_date) >= today);
+            
+            container.innerHTML = upcoming.map(harvest => {
+                const harvestDate = new Date(harvest.harvest_date);
+                const diffDays = Math.ceil((harvestDate - today) / (1000 * 60 * 60 * 24));
+                
+                let statusClass = 'normal';
+                let statusText = 'Upcoming';
+                if (diffDays <= 3) {
+                    statusClass = 'urgent';
+                    statusText = 'Urgent';
+                } else if (diffDays <= 7) {
+                    statusClass = 'soon';
+                    statusText = 'Soon';
+                }
+
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+                return `
+                    <div class="harvest-item ${statusClass}">
+                        <div class="harvest-date">
+                            <div class="day">${harvestDate.getDate()}</div>
+                            <div class="month">${months[harvestDate.getMonth()]}</div>
+                        </div>
+                        <div class="harvest-info">
+                            <h3>${harvest.crop_name}</h3>
+                            <p>${harvest.expected_quantity || ''} ${harvest.unit || ''} ${harvest.notes ? '• ' + harvest.notes : ''}</p>
+                        </div>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        <div class="harvest-actions">
+                            <button class="edit-btn" onclick="editHarvest('${harvest.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn" onclick="deleteHarvest('${harvest.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openModal() {
+            document.getElementById('harvestModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = 'Add Harvest';
+            document.getElementById('harvestForm').reset();
+            document.getElementById('harvestId').value = '';
+        }
+
+        function closeModal() {
+            document.getElementById('harvestModal').classList.remove('active');
+        }
+
+        async function saveHarvest(e) {
+            e.preventDefault();
+
+            const harvestId = document.getElementById('harvestId').value;
+            const data = {
+                crop_name: document.getElementById('cropName').value,
+                harvest_date: document.getElementById('harvestDate').value,
+                expected_quantity: document.getElementById('quantity').value || null,
+                unit: document.getElementById('unit').value,
+                notes: document.getElementById('notes').value || null,
+                seller_id: currentUser.id
+            };
+
+            let error;
+            if (harvestId) {
+                const result = await supabase.from('harvests').update(data).eq('id', harvestId);
+                error = result.error;
+            } else {
+                const result = await supabase.from('harvests').insert([data]);
+                error = result.error;
+            }
+
+            if (error) {
+                alert('Failed to save harvest: ' + error.message);
+            } else {
+                closeModal();
+                await loadHarvests();
+                renderCalendar();
+            }
+        }
+
+        async function editHarvest(id) {
+            const harvest = harvests.find(h => h.id === id);
+            if (!harvest) return;
+
+            document.getElementById('harvestId').value = harvest.id;
+            document.getElementById('cropName').value = harvest.crop_name;
+            document.getElementById('harvestDate').value = harvest.harvest_date;
+            document.getElementById('quantity').value = harvest.expected_quantity || '';
+            document.getElementById('unit').value = harvest.unit || 'bags';
+            document.getElementById('notes').value = harvest.notes || '';
+            document.getElementById('modalTitle').textContent = 'Edit Harvest';
+            document.getElementById('harvestModal').classList.add('active');
+        }
+
+        async function deleteHarvest(id) {
+            if (!confirm('Are you sure you want to delete this harvest?')) return;
+
+            const { error } = await supabase.from('harvests').delete().eq('id', id);
+            if (!error) {
+                await loadHarvests();
+                renderCalendar();
+            }
+        }
+    </script>
+</body>
+</html>

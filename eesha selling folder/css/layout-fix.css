@@ -1,0 +1,109 @@
+/* Critical layout fixes */
+:root {
+    --sidebar-width: 280px;
+    --navbar-height: 70px;
+    --content-padding: 2rem;
+}
+
+/* Fix sidebar width and position */
+.sidebar {
+    background: var(--secondary-color);
+    color: white;
+    padding: 1.5rem;
+    position: fixed;
+    height: 100vh;
+    width: var(--sidebar-width);
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    overflow-y: auto;
+    z-index: 40;
+}
+
+/* Fix content wrapper positioning */
+.content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin-left: var(--sidebar-width);
+    background: #f8f9fa;
+    position: relative;
+    width: calc(100% - var(--sidebar-width));
+    z-index: 50;
+}
+
+/* Fix navbar positioning */
+.navbar {
+    height: var(--navbar-height);
+    background: white;
+    padding: 0 var(--content-padding);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+}
+
+/* Main content area fixes */
+main {
+    flex: 1;
+    padding: 0;
+    background: #f8f9fa;
+    min-height: calc(100vh - var(--navbar-height));
+    width: 100%;
+}
+
+/* Hero carousel positioning */
+.hero-carousel {
+    margin: 2rem;
+    position: relative;
+    z-index: 45;
+}
+
+/* Stats grid fixes */
+.stats-grid {
+    margin: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+/* Mobile responsive fixes */
+@media (max-width: 1024px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .content-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Fix notification badge position */
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(25%, -25%);
+}
+
+/* Fix navbar-end alignment */
+.navbar-end {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+}

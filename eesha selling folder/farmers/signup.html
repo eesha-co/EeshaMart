@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmer Registration - EeshaMart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#059669',
+                        'primary-light': '#10B981',
+                        'primary-dark': '#047857',
+                        'dark-green': '#14532d',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%);
+            min-height: 100vh;
+        }
+        .signup-card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+        <div class="signup-card p-8">
+            <!-- Logo -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-seedling text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-dark-green">Register as Farmer</h1>
+                <p class="text-gray-500 mt-1">Join our agricultural marketplace</p>
+            </div>
+
+            <!-- Signup Form -->
+            <form id="signupForm" class="space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                        <input type="text" id="firstName" required
+                               class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                               placeholder="John">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                        <input type="text" id="lastName" required
+                               class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                               placeholder="Doe">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Farm Name</label>
+                    <input type="text" id="farmName" required
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                           placeholder="e.g., Green Valley Farm">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <input type="email" id="email" required
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                           placeholder="your@email.com">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <input type="tel" id="phone"
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                           placeholder="+234 800 000 0000">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="password" required minlength="6"
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                           placeholder="Minimum 6 characters">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                    <input type="password" id="confirmPassword" required minlength="6"
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                           placeholder="Confirm your password">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Farm Type</label>
+                    <select id="farmType" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary">
+                        <option value="">Select farm type</option>
+                        <option value="crop">Crop Farming</option>
+                        <option value="livestock">Livestock</option>
+                        <option value="mixed">Mixed (Crops & Livestock)</option>
+                        <option value="poultry">Poultry</option>
+                        <option value="dairy">Dairy</option>
+                        <option value="fishery">Fishery</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">State</label>
+                    <select id="state" required
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary">
+                        <option value="">Select state</option>
+                        <option value="Abia">Abia</option>
+                        <option value="Abuja">Abuja (FCT)</option>
+                        <option value="Adamawa">Adamawa</option>
+                        <option value="Akwa Ibom">Akwa Ibom</option>
+                        <option value="Anambra">Anambra</option>
+                        <option value="Bauchi">Bauchi</option>
+                        <option value="Bayelsa">Bayelsa</option>
+                        <option value="Benue">Benue</option>
+                        <option value="Borno">Borno</option>
+                        <option value="Cross River">Cross River</option>
+                        <option value="Delta">Delta</option>
+                        <option value="Ebonyi">Ebonyi</option>
+                        <option value="Edo">Edo</option>
+                        <option value="Ekiti">Ekiti</option>
+                        <option value="Enugu">Enugu</option>
+                        <option value="Gombe">Gombe</option>
+                        <option value="Imo">Imo</option>
+                        <option value="Jigawa">Jigawa</option>
+                        <option value="Kaduna">Kaduna</option>
+                        <option value="Kano">Kano</option>
+                        <option value="Katsina">Katsina</option>
+                        <option value="Kebbi">Kebbi</option>
+                        <option value="Kogi">Kogi</option>
+                        <option value="Kwara">Kwara</option>
+                        <option value="Lagos">Lagos</option>
+                        <option value="Nasarawa">Nasarawa</option>
+                        <option value="Niger">Niger</option>
+                        <option value="Ogun">Ogun</option>
+                        <option value="Ondo">Ondo</option>
+                        <option value="Osun">Osun</option>
+                        <option value="Oyo">Oyo</option>
+                        <option value="Plateau">Plateau</option>
+                        <option value="Rivers">Rivers</option>
+                        <option value="Sokoto">Sokoto</option>
+                        <option value="Taraba">Taraba</option>
+                        <option value="Yobe">Yobe</option>
+                        <option value="Zamfara">Zamfara</option>
+                    </select>
+                </div>
+
+                <div class="flex items-start gap-2">
+                    <input type="checkbox" id="terms" required class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                    <label for="terms" class="text-sm text-gray-600">
+                        I agree to the <a href="#" class="text-primary hover:underline">Terms of Service</a> and <a href="#" class="text-primary hover:underline">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <button type="submit" id="submitBtn"
+                        class="w-full py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition flex items-center justify-center gap-2">
+                    <span>Create Farmer Account</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-4 my-6">
+                <div class="flex-1 border-t border-gray-200"></div>
+                <span class="text-sm text-gray-500">or</span>
+                <div class="flex-1 border-t border-gray-200"></div>
+            </div>
+
+            <!-- Other Options -->
+            <div class="space-y-3">
+                <a href="login.html" class="block w-full py-3 border-2 border-primary text-primary rounded-xl font-semibold text-center hover:bg-primary hover:text-white transition">
+                    Already have an account? Login
+                </a>
+                <a href="../merchant/signup.html" class="block w-full py-3 border border-gray-200 text-gray-600 rounded-xl font-medium text-center hover:bg-gray-50 transition">
+                    <i class="fas fa-store mr-2"></i>
+                    Register as Merchant Instead
+                </a>
+            </div>
+
+            <!-- Error/Success Message -->
+            <div id="errorMsg" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
+            <div id="successMsg" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm"></div>
+        </div>
+
+        <p class="text-center text-gray-500 text-sm mt-6">
+            &copy; 2025 EeshaMart. All rights reserved.
+        </p>
+    </div>
+
+    <script>
+        const supabaseClient = window.supabase;
+        
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const farmName = document.getElementById('farmName').value;
+            const email = document.getElementById('email').value.toLowerCase();
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const farmType = document.getElementById('farmType').value;
+            const state = document.getElementById('state').value;
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const successMsg = document.getElementById('successMsg');
+            
+            // Clear previous messages
+            errorMsg.classList.add('hidden');
+            successMsg.classList.add('hidden');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorMsg.textContent = 'Passwords do not match!';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+            
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating account...';
+
+            try {
+                // Check if email already exists in Supabase
+                const { data: existingSeller } = await supabaseClient
+                    .from('sellers')
+                    .select('id')
+                    .eq('email', email)
+                    .single();
+
+                if (existingSeller) {
+                    errorMsg.textContent = 'An account with this email already exists. Please login instead.';
+                    errorMsg.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>Create Farmer Account</span><i class="fas fa-arrow-right"></i>';
+                    return;
+                }
+
+                // Hash the password using SHA-256 (same as other pages)
+                const encoder = new TextEncoder();
+                const data = encoder.encode(password + 'eesha_salt_2024');
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                // Insert into Supabase sellers table
+                const { data: sellerData, error: insertError } = await supabaseClient
+                    .from('sellers')
+                    .insert([{
+                        email: email,
+                        password_hash: passwordHash,
+                        first_name: firstName,
+                        last_name: lastName,
+                        business_name: farmName,
+                        farm_name: farmName,
+                        contact_phone: phone,
+                        seller_type: 'FARMER',
+                        farm_type: farmType,
+                        business_location: state,
+                        state: state,
+                        status: 'active',
+                        email_verified: false,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }])
+                    .select();
+
+                if (insertError) {
+                    console.error('Error creating seller profile:', insertError);
+                    throw insertError;
+                }
+
+                // Store ONLY the seller ID in localStorage (as a reference)
+                // All actual data will be fetched from Supabase
+                localStorage.setItem('sellerId', sellerData[0].id);
+                localStorage.setItem('isLoggedIn', 'true');
+
+                // Show success message
+                successMsg.innerHTML = `
+                    <strong>Registration successful!</strong><br>
+                    Your farmer account has been created. Redirecting to dashboard...
+                `;
+                successMsg.classList.remove('hidden');
+
+                // Redirect to dashboard after 2 seconds
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+
+            } catch (err) {
+                console.error('Registration error:', err);
+                errorMsg.textContent = err.message || 'Failed to create account';
+                errorMsg.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Create Farmer Account</span><i class="fas fa-arrow-right"></i>';
+            }
+        });
+    </script>
+</body>
+</html>

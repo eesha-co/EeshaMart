@@ -1,0 +1,102 @@
+<!-- Shared header (extracted from index.html) -->
+<header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+    <nav class="container mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+            <!-- Logo -->
+            <a href="index.html" class="flex items-center gap-2 group">
+                <div class="w-10 h-10 flex items-center justify-center">
+                    <svg viewBox="0 0 60 60" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fbbf24"/>
+                                <stop offset="50%" stop-color="#f59e0b"/>
+                                <stop offset="100%" stop-color="#d97706"/>
+                            </linearGradient>
+                            <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <!-- Bag Body -->
+                        <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                              fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                        <!-- Bag Handle -->
+                        <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                              fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <!-- Letter "E" -->
+                        <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                              fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                        <!-- Sparkle -->
+                        <g transform="translate(52, 8)">
+                            <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                    <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                </div>
+            </a>
+
+            <!-- Search Bar -->
+            <div class="hidden md:flex flex-1 max-w-xl mx-8">
+                <div class="relative w-full">
+                    <input type="text" placeholder="Search products..." 
+                           class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary">
+                    <button class="absolute right-0 top-0 bottom-0 px-4 bg-primary text-white rounded-r-lg" aria-label="Search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="flex items-center space-x-6" id="auth-links">
+                <a href="Eesha buying folder/login.html" class="hidden md:block text-gray-600 hover:text-primary" id="login-link">
+                    <i class="fas fa-user mr-2"></i>Login
+                </a>
+                <a href="Eesha buying folder/signup.html" class="hidden md:block text-gray-600 hover:text-primary" id="signup-link">
+                    <i class="fas fa-user-plus mr-2"></i>Sign Up
+                </a>
+                <div id="user-menu" class="hidden relative">
+                    <button id="user-menu-button" class="flex items-center space-x-2 text-gray-600 hover:text-primary" aria-label="Open user menu">
+                        <i class="fas fa-user-circle text-xl"></i>
+                        <span id="user-email" class="hidden md:block"></span>
+                    </button>
+                    <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1">
+                        <a href="#" id="logout-button" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                    </div>
+                </div>
+                <a href="Eesha buying folder/cart.html" class="relative text-gray-600 hover:text-primary">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </a>
+                <button class="md:hidden text-gray-600" id="mobileMenuBtn" aria-label="Toggle mobile menu">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+         <!-- Mobile Menu -->
+        <div class="md:hidden hidden" id="mobileMenu">
+            <div class="px-4 py-2 bg-custom-red-50">
+                <div class="flex flex-col space-y-4" id="mobile-auth-links">
+                    <a href="Eesha buying folder/login.html" class="text-gray-600">Login</a>
+                    <a href="Eesha buying folder/signup.html" class="text-gray-600">Sign Up</a>
+                    <a href="#" id="mobile-logout-button" class="text-gray-600 hidden">Logout</a>
+                    <div class="border-t border-gray-200 pt-2">
+                        <a href="#" class="block py-2 text-gray-600">Electronics</a>
+                        <a href="#" class="block py-2 text-gray-600">Fashion</a>
+                        <a href="#" class="block py-2 text-gray-600">Home & Living</a>
+                        <a href="#" class="block py-2 text-gray-600">Beauty</a>
+                        <a href="#" class="block py-2 text-gray-600">Sports</a>
+                        <a href="#" class="block py-2 text-gray-600">Books</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<!-- End shared header -->

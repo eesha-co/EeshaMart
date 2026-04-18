@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - EeshaMart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#f97316',
+                        secondary: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        .login-card {
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="login-card bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span class="text-white font-bold text-3xl">E</span>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Admin Portal</h1>
+            <p class="text-gray-500 text-sm mt-1">EeshaMart Administration</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Admin Email</label>
+                <div class="relative">
+                    <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="email" id="email" required
+                           class="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                           placeholder="admin@eeshamart.com">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <div class="relative">
+                    <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="password" id="password" required
+                           class="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                           placeholder="••••••••">
+                    <button type="button" onclick="togglePassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-eye" id="eyeIcon"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="errorMsg" class="hidden bg-red-50 text-red-600 text-sm p-3 rounded-xl">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span id="errorText">Invalid credentials</span>
+            </div>
+            <button type="submit" id="loginBtn"
+                    class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2">
+                <span>Sign In</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center text-sm text-gray-500">
+            <p>Protected by admin authentication</p>
+        </div>
+    </div>
+
+    <script>
+        // Check if already logged in
+        const adminSession = sessionStorage.getItem('adminLoggedIn');
+        if (adminSession === 'true') {
+            window.location.href = 'index.html';
+        }
+
+        // Admin credentials (in production, use Supabase Auth with admin role)
+        const ADMIN_CREDENTIALS = {
+            email: 'admin@eeshamart.com',
+            password: 'EeshaMart2024!'
+        };
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            const loginBtn = document.getElementById('loginBtn');
+
+            // Show loading
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+            loginBtn.disabled = true;
+            errorMsg.classList.add('hidden');
+
+            // Simulate delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Check credentials
+            if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                sessionStorage.setItem('adminEmail', email);
+                window.location.href = 'index.html';
+            } else {
+                errorText.textContent = 'Invalid email or password';
+                errorMsg.classList.remove('hidden');
+                loginBtn.innerHTML = '<span>Sign In</span><i class="fas fa-arrow-right"></i>';
+                loginBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

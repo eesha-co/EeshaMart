@@ -1,0 +1,50 @@
+/* Back Button Styles */
+.back-button {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+.back-button:hover {
+    background-color: #f9fafb;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-button i {
+    font-size: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .back-button {
+        top: 1rem;
+        left: 1rem;
+        padding: 0.4rem 0.8rem;
+    }
+}
+
+/* Adjust for pages with sidebar */
+.has-sidebar .back-button {
+    left: calc(280px + 1.5rem); /* sidebar width + margin */
+}
+
+@media (max-width: 1024px) {
+    .has-sidebar .back-button {
+        left: 1.5rem;
+    }
+}

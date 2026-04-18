@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Login - Eesha Shop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="../Eesha buying folder/shared/image1.svg" alt="Eesha Logo" class="mx-auto h-20">
+            <h2 class="mt-4 text-3xl font-bold text-gray-900">Merchant Login</h2>
+            <p class="mt-2 text-gray-600">Sign in to your seller dashboard</p>
+        </div>
+
+        <div class="bg-white shadow-xl rounded-lg p-8">
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                    <input type="email" id="email" name="email" required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <div class="relative">
+                        <input type="password" id="password" name="password" required
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f0474a] focus:border-[#f0474a]">
+                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i class="fas fa-eye text-gray-400 hover:text-gray-600" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="remember-me" class="h-4 w-4 text-[#f0474a] focus:ring-[#f0474a] border-gray-300 rounded">
+                        <label for="remember-me" class="ml-2 block text-sm text-gray-900">Remember me</label>
+                    </div>
+                    <a href="#" class="text-sm text-[#f0474a] hover:underline">Forgot password?</a>
+                </div>
+
+                <button type="submit" id="loginButton"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-[#f0474a] hover:bg-[#e43d40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f0474a]">
+                    <span>Sign in</span>
+                    <i class="fas fa-spinner loading ml-2 hidden" id="loadingIcon"></i>
+                </button>
+
+                <div id="errorMessage" class="hidden text-red-600 text-sm text-center"></div>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an account? 
+                    <a href="signup.html" class="font-medium text-[#f0474a] hover:underline">Sign up</a>
+                </p>
+            </div>
+
+            <div class="mt-4 pt-4 border-t">
+                <a href="../farmers/login.html" class="block text-center text-sm text-gray-600 hover:text-[#f0474a]">
+                    <i class="fas fa-seedling mr-2"></i>Login as Farmer
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const supabaseClient = window.supabase;
+        const loginForm = document.getElementById('loginForm');
+        const loginButton = document.getElementById('loginButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadingIcon = document.getElementById('loadingIcon');
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function setLoading(isLoading) {
+            loadingIcon.classList.toggle('hidden', !isLoading);
+            loginButton.disabled = isLoading;
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Hash password using SHA-256 (same as signup)
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + 'eesha_salt_2024');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+            setLoading(true);
+
+            const email = document.getElementById('email').value.toLowerCase();
+            const password = document.getElementById('password').value;
+
+            try {
+                // Hash the password
+                const passwordHash = await hashPassword(password);
+
+                // Query the sellers table directly for authentication
+                const { data: seller, error } = await supabaseClient
+                    .from('sellers')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('password_hash', passwordHash)
+                    .single();
+
+                if (error || !seller) {
+                    showError('Invalid email or password. Please try again.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Check if account is active
+                if (seller.status === 'suspended') {
+                    showError('Your account has been suspended. Please contact support.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Check if this is a merchant account
+                if (seller.seller_type && seller.seller_type !== 'MERCHANT') {
+                    showError('This email is registered as a ' + seller.seller_type + '. Please use the correct login page.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Update last login time in Supabase
+                await supabaseClient
+                    .from('sellers')
+                    .update({ last_login_at: new Date().toISOString() })
+                    .eq('id', seller.id);
+
+                // Store ONLY the seller ID in localStorage (as a reference)
+                // All actual data will be fetched from Supabase
+                localStorage.setItem('sellerId', seller.id);
+                localStorage.setItem('isLoggedIn', 'true');
+
+                // Redirect to dashboard (dashboard will fetch data from Supabase)
+                window.location.href = 'index.html';
+
+            } catch (err) {
+                console.error('Login error:', err);
+                showError('An error occurred. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Check if already logged in - verify against Supabase
+        window.addEventListener('load', async () => {
+            const sellerId = localStorage.getItem('sellerId');
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            
+            if (sellerId && isLoggedIn === 'true') {
+                // Verify the seller exists in Supabase
+                const { data: seller, error } = await supabaseClient
+                    .from('sellers')
+                    .select('id, seller_type')
+                    .eq('id', sellerId)
+                    .single();
+                
+                if (seller && seller.seller_type === 'MERCHANT') {
+                    window.location.href = 'index.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

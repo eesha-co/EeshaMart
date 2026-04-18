@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EeshaMart Academy - Grow Your Business</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="../js/config/supabase.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#fffbeb', 100: '#fef3c7', 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' },
+                        dark: { 900: '#0f172a', 800: '#1e293b' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; }
+        
+        /* Sidebar */
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); color: white; z-index: 50; overflow-y: auto; }
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #94a3b8; text-decoration: none; transition: all 0.2s; border-left: 3px solid transparent; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(249, 115, 22, 0.1); color: #f97316; border-left-color: #f97316; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+        
+        /* Cards */
+        .course-card { transition: all 0.3s ease; }
+        .course-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        
+        /* Live indicator */
+        @keyframes pulse-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .live-pulse { animation: pulse-live 2s infinite; }
+        
+        /* Video player */
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        /* Progress bar */
+        .progress-bar { transition: width 0.5s ease; }
+        
+        /* Lesson item */
+        .lesson-item.active { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; }
+        .lesson-item.completed { border-left: 3px solid #22c55e; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="p-5 border-b border-white/10">
+            <a href="index.html" class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">E</span>
+                </div>
+                <div>
+                    <h1 class="font-bold text-white">EeshaMart</h1>
+                    <span class="text-xs text-gray-400">Seller Academy</span>
+                </div>
+            </a>
+        </div>
+        
+        <nav class="py-4">
+            <a href="index.html" class="sidebar-link"><i class="fas fa-home w-5"></i><span>Dashboard</span></a>
+            <a href="products.html" class="sidebar-link"><i class="fas fa-box w-5"></i><span>Products</span></a>
+            <a href="orders.html" class="sidebar-link"><i class="fas fa-shopping-cart w-5"></i><span>Orders</span></a>
+            
+            <div class="px-5 mt-6 mb-2"><span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Learning</span></div>
+            <a href="academy.html" class="sidebar-link active"><i class="fas fa-graduation-cap w-5"></i><span>Academy</span></a>
+            <a href="#live-section" class="sidebar-link"><i class="fas fa-broadcast-tower w-5"></i><span>Live Sessions</span></a>
+            <a href="#my-courses" class="sidebar-link"><i class="fas fa-book-open w-5"></i><span>My Courses</span></a>
+            <a href="#certificates" class="sidebar-link"><i class="fas fa-certificate w-5"></i><span>Certificates</span></a>
+            
+            <div class="px-5 mt-6 mb-2"><span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account</span></div>
+            <a href="settings.html" class="sidebar-link"><i class="fas fa-cog w-5"></i><span>Settings</span></a>
+            <button onclick="logout()" class="sidebar-link w-full text-left"><i class="fas fa-sign-out-alt w-5"></i><span>Logout</span></button>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-100 sticky top-0 z-40">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-bars text-gray-600"></i></button>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">🎓 EeshaMart Academy</h1>
+                        <p class="text-sm text-gray-500">Learn skills to grow your business</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 bg-orange-50 px-4 py-2 rounded-full">
+                        <i class="fas fa-fire text-orange-500"></i>
+                        <span class="text-sm font-medium text-orange-700"><span id="streakCount">0</span> day streak</span>
+                    </div>
+                    <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center">
+                        <span class="text-white font-bold" id="userInitial">S</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center"><i class="fas fa-check-circle text-green-500 text-xl"></i></div>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-900" id="completedCount">0</p>
+                            <p class="text-sm text-gray-500">Completed</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center"><i class="fas fa-play-circle text-blue-500 text-xl"></i></div>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-900" id="inProgressCount">0</p>
+                            <p class="text-sm text-gray-500">In Progress</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center"><i class="fas fa-certificate text-orange-500 text-xl"></i></div>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-900" id="certCount">0</p>
+                            <p class="text-sm text-gray-500">Certificates</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-5 border border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center"><i class="fas fa-clock text-purple-500 text-xl"></i></div>
+                        <div>
+                            <p class="text-2xl font-bold text-gray-900" id="watchTime">0h</p>
+                            <p class="text-sm text-gray-500">Watch Time</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Sessions Banner -->
+            <section id="live-section" class="mb-8">
+                <div id="liveBanner" class="hidden bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl p-6 text-white mb-4">
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-broadcast-tower text-2xl live-pulse"></i>
+                            </div>
+                            <div>
+                                <span class="bg-white text-red-500 text-xs font-bold px-2 py-0.5 rounded-full">LIVE NOW</span>
+                                <h2 class="text-xl font-bold mt-1" id="liveTitle">Session</h2>
+                                <p class="text-white/80 text-sm" id="liveHost">Hosted by Admin</p>
+                            </div>
+                        </div>
+                        <button onclick="joinLiveSession()" class="bg-white text-orange-500 px-6 py-3 rounded-xl font-semibold hover:bg-orange-50 transition-colors">
+                            <i class="fas fa-video mr-2"></i>Join Now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upcoming Sessions -->
+                <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                        <h2 class="font-bold text-gray-900">📅 Upcoming Live Sessions</h2>
+                        <span class="text-sm text-gray-500"><span id="upcomingSessionCount">0</span> scheduled</span>
+                    </div>
+                    <div id="upcomingSessions" class="divide-y divide-gray-50">
+                        <!-- Loaded from Supabase -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Continue Learning -->
+            <section id="my-courses" class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-gray-900">📖 Continue Learning</h2>
+                    <a href="#all-courses" class="text-sm text-orange-500 hover:underline">Browse all courses</a>
+                </div>
+                <div id="continueLearning" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- In-progress courses -->
+                </div>
+                <div id="noInProgress" class="hidden bg-gray-50 rounded-2xl p-8 text-center">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-book-open text-gray-400 text-2xl"></i>
+                    </div>
+                    <p class="text-gray-500">Start a course to see your progress here</p>
+                </div>
+            </section>
+
+            <!-- All Courses -->
+            <section id="all-courses" class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-gray-900">📚 All Courses</h2>
+                    <div class="flex gap-2">
+                        <select id="levelFilter" onchange="filterCourses()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+                            <option value="">All Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <select id="categoryFilter" onchange="filterCourses()" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white">
+                            <option value="">All Categories</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Branding">Branding</option>
+                            <option value="Business">Business</option>
+                            <option value="Service">Customer Service</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="coursesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- All courses -->
+                </div>
+            </section>
+
+            <!-- Certificates -->
+            <section id="certificates" class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-gray-900">🏆 My Certificates</h2>
+                </div>
+                <div id="certificatesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Certificates -->
+                </div>
+                <div id="noCerts" class="hidden bg-gray-50 rounded-2xl p-8 text-center">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-certificate text-gray-400 text-2xl"></i>
+                    </div>
+                    <p class="text-gray-500">Complete courses to earn certificates</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Course View Modal -->
+    <div id="courseModal" class="hidden fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+        <div class="min-h-screen py-8 px-4 flex items-start justify-center">
+            <div class="bg-white rounded-2xl w-full max-w-5xl overflow-hidden">
+                <!-- Modal Header -->
+                <div class="relative h-48 bg-gradient-to-r from-gray-900 to-gray-800">
+                    <button onclick="closeCourseModal()" class="absolute top-4 right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30">
+                        <i class="fas fa-times text-white"></i>
+                    </button>
+                    <div class="absolute bottom-0 left-0 right-0 p-6">
+                        <span id="modalCategory" class="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">Category</span>
+                        <h2 id="modalTitle" class="text-2xl font-bold text-white mt-2">Course Title</h2>
+                        <div class="flex items-center gap-4 mt-2 text-gray-300 text-sm">
+                            <span><i class="fas fa-clock mr-1"></i><span id="modalDuration">0</span> mins</span>
+                            <span><i class="fas fa-signal mr-1"></i><span id="modalLevel">Beginner</span></span>
+                            <span><i class="fas fa-play-circle mr-1"></i><span id="modalLessons">0</span> lessons</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3">
+                    <!-- Video Player -->
+                    <div class="lg:col-span-2 p-6">
+                        <div id="videoPlayer" class="bg-gray-900 rounded-xl overflow-hidden mb-4">
+                            <div class="video-container">
+                                <iframe id="videoFrame" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h3 class="text-lg font-bold text-gray-900 mb-2" id="lessonTitle">Select a lesson</h3>
+                            <p class="text-gray-600 text-sm" id="lessonDescription">Choose a lesson from the list to start learning</p>
+                        </div>
+                        
+                        <!-- Progress -->
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Course Progress</span>
+                                <span class="text-sm font-bold text-orange-500" id="courseProgress">0%</span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="progressBar" class="progress-bar h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quiz Section -->
+                        <div id="quizSection" class="hidden mt-4 bg-orange-50 rounded-xl p-5 border border-orange-200">
+                            <h4 class="font-bold text-gray-900 mb-3"><i class="fas fa-question-circle text-orange-500 mr-2"></i>Quick Quiz</h4>
+                            <div id="quizContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lessons List -->
+                    <div class="border-l border-gray-100 max-h-[600px] overflow-y-auto">
+                        <div class="p-4 border-b border-gray-100 sticky top-0 bg-white">
+                            <h3 class="font-semibold text-gray-900">Lessons</h3>
+                        </div>
+                        <div id="lessonsList" class="p-2">
+                            <!-- Lessons -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Session Modal -->
+    <div id="liveModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl overflow-hidden">
+            <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 bg-red-500 rounded-full live-pulse"></span>
+                    <span class="font-bold text-gray-900" id="liveModalTitle">Live Session</span>
+                </div>
+                <button onclick="closeLiveModal()" class="p-2 hover:bg-gray-100 rounded-lg"><i class="fas fa-times text-gray-500"></i></button>
+            </div>
+            <div class="video-container bg-gray-900">
+                <iframe id="liveFrame" src="" allowfullscreen allow="camera; microphone; autoplay"></iframe>
+            </div>
+            <div class="p-4 bg-gray-50 flex items-center justify-between">
+                <span class="text-sm text-gray-500"><i class="fas fa-users mr-1"></i><span id="viewerCount">0</span> watching</span>
+                <button onclick="leaveLiveSession()" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-600">Leave Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://tcwdbokruvlizkxcpkzj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg';
+        const supabaseClient = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let sellerId = localStorage.getItem('sellerId');
+        let allCourses = [];
+        let allSessions = [];
+        let currentCourse = null;
+        let currentLesson = null;
+
+        // Auth check
+        if (!sellerId || localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSellerInfo();
+            loadCourses();
+            loadSessions();
+            loadCertificates();
+            loadStats();
+        });
+
+        async function loadSellerInfo() {
+            try {
+                const { data } = await supabaseClient.from('sellers').select('business_name').eq('id', sellerId).single();
+                if (data) {
+                    document.getElementById('userInitial').textContent = (data.business_name || 'S').charAt(0).toUpperCase();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadCourses() {
+            try {
+                const { data: courses, error } = await supabaseClient
+                    .from('academy_courses')
+                    .select('*, academy_lessons(count)')
+                    .eq('is_published', true)
+                    .order('order_index', { ascending: true });
+
+                if (error) throw error;
+                allCourses = courses || [];
+                
+                // Load enrollments for this seller
+                const { data: enrollments } = await supabaseClient
+                    .from('academy_enrollments')
+                    .select('*, academy_courses(*)')
+                    .eq('seller_id', sellerId);
+
+                renderCourses(enrollments || []);
+                renderContinueLearning(enrollments || []);
+            } catch (e) {
+                console.error('Error loading courses:', e);
+            }
+        }
+
+        function renderCourses(enrollments) {
+            const grid = document.getElementById('coursesGrid');
+            const levelFilter = document.getElementById('levelFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+
+            let filtered = allCourses;
+            if (levelFilter) filtered = filtered.filter(c => c.level === levelFilter);
+            if (categoryFilter) filtered = filtered.filter(c => c.category === categoryFilter);
+
+            grid.innerHTML = filtered.map(course => {
+                const enrollment = enrollments.find(e => e.course_id === course.id);
+                const progress = enrollment?.progress_percentage || 0;
+                const lessonCount = course.academy_lessons?.[0]?.count || 0;
+
+                return `
+                <div class="course-card bg-white rounded-2xl border border-gray-100 overflow-hidden cursor-pointer" onclick="openCourse('${course.id}')">
+                    <div class="relative h-36">
+                        <img src="${course.thumbnail_url || 'https://via.placeholder.com/400x200?text=Course'}" class="w-full h-full object-cover">
+                        <div class="absolute top-3 right-3">
+                            <span class="text-xs bg-white/90 px-2 py-1 rounded-full capitalize">${course.level}</span>
+                        </div>
+                        ${progress > 0 ? `<div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-200"><div class="h-full bg-orange-500" style="width: ${progress}%"></div></div>` : ''}
+                    </div>
+                    <div class="p-4">
+                        <span class="text-xs text-orange-500 font-medium">${course.category || 'General'}</span>
+                        <h3 class="font-semibold text-gray-900 mt-1 line-clamp-2">${course.title}</h3>
+                        <p class="text-xs text-gray-500 mt-2 line-clamp-2">${course.description || 'No description'}</p>
+                        <div class="flex items-center justify-between mt-3 text-xs text-gray-500">
+                            <span><i class="fas fa-video mr-1"></i>${lessonCount} lessons</span>
+                            <span><i class="fas fa-clock mr-1"></i>${course.duration_minutes || 0} min</span>
+                        </div>
+                        ${progress > 0 ? `
+                            <div class="mt-3 flex items-center gap-2">
+                                <div class="flex-1 h-1.5 bg-gray-100 rounded-full"><div class="h-full bg-orange-500 rounded-full" style="width: ${progress}%"></div></div>
+                                <span class="text-xs text-orange-500 font-medium">${progress}%</span>
+                            </div>
+                        ` : `
+                            <button class="mt-3 w-full bg-orange-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
+                                ${enrollment ? 'Continue' : 'Start Course'}
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function renderContinueLearning(enrollments) {
+            const container = document.getElementById('continueLearning');
+            const inProgress = enrollments.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100);
+
+            if (inProgress.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('noInProgress').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('noInProgress').classList.add('hidden');
+            container.innerHTML = inProgress.map(e => {
+                const course = e.academy_courses;
+                if (!course) return '';
+                return `
+                <div class="course-card bg-white rounded-2xl border border-gray-100 overflow-hidden cursor-pointer" onclick="openCourse('${course.id}')">
+                    <div class="flex gap-4 p-4">
+                        <img src="${course.thumbnail_url || 'https://via.placeholder.com/100'}" class="w-24 h-24 rounded-xl object-cover">
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900 line-clamp-1">${course.title}</h3>
+                            <p class="text-xs text-gray-500 mt-1">${course.duration_minutes} mins • ${course.level}</p>
+                            <div class="mt-3 flex items-center gap-2">
+                                <div class="flex-1 h-2 bg-gray-100 rounded-full"><div class="h-full bg-orange-500 rounded-full" style="width: ${e.progress_percentage}%"></div></div>
+                                <span class="text-xs font-medium text-orange-500">${e.progress_percentage}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        async function loadSessions() {
+            try {
+                const { data: sessions } = await supabaseClient
+                    .from('academy_live_sessions')
+                    .select('*')
+                    .order('scheduled_at', { ascending: true });
+
+                allSessions = sessions || [];
+                
+                // Check for live session
+                const live = allSessions.find(s => s.is_live);
+                if (live) {
+                    document.getElementById('liveBanner').classList.remove('hidden');
+                    document.getElementById('liveTitle').textContent = live.title;
+                    document.getElementById('liveHost').textContent = `Hosted by ${live.host_name || 'Admin'}`;
+                }
+
+                // Render upcoming
+                const upcoming = allSessions.filter(s => !s.is_completed && !s.is_live);
+                document.getElementById('upcomingSessionCount').textContent = upcoming.length;
+                document.getElementById('upcomingSessions').innerHTML = upcoming.slice(0, 3).map(s => {
+                    const date = new Date(s.scheduled_at);
+                    return `
+                    <div class="p-4 hover:bg-gray-50 transition-colors flex items-center gap-4">
+                        <div class="w-14 h-14 bg-orange-100 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
+                            <span class="text-xs text-orange-600 font-bold">${date.toLocaleDateString('en-US', { month: 'short' })}</span>
+                            <span class="text-lg font-bold text-orange-600">${date.getDate()}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-gray-900 truncate">${s.title}</h4>
+                            <p class="text-sm text-gray-500">${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} • ${s.host_name || 'Admin'}</p>
+                        </div>
+                        <button onclick="registerSession('${s.id}')" class="bg-orange-100 text-orange-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-200">
+                            Register
+                        </button>
+                    </div>
+                `;
+                }).join('') || '<div class="p-8 text-center text-gray-500">No upcoming sessions</div>';
+            } catch (e) {
+                console.error('Error loading sessions:', e);
+            }
+        }
+
+        async function loadCertificates() {
+            try {
+                const { data: certs } = await supabaseClient
+                    .from('academy_certificates')
+                    .select('*, academy_courses(title)')
+                    .eq('seller_id', sellerId);
+
+                document.getElementById('certCount').textContent = certs?.length || 0;
+
+                const grid = document.getElementById('certificatesGrid');
+                if (!certs || certs.length === 0) {
+                    grid.innerHTML = '';
+                    document.getElementById('noCerts').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('noCerts').classList.add('hidden');
+                grid.innerHTML = certs.map(cert => `
+                <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-5 border border-orange-100">
+                    <div class="flex items-center justify-center mb-4">
+                        <div class="w-16 h-16 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-certificate text-white text-2xl"></i>
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 text-center">${cert.academy_courses?.title || 'Course'}</h3>
+                    <p class="text-xs text-gray-500 text-center mt-1">Completed ${new Date(cert.issued_at).toLocaleDateString()}</p>
+                    <button class="mt-3 w-full bg-white text-orange-500 border border-orange-200 py-2 rounded-lg text-sm font-medium hover:bg-orange-50">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </button>
+                </div>
+            `).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const { count: completed } = await supabaseClient.from('academy_enrollments').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId).eq('progress_percentage', 100);
+                const { count: inProgress } = await supabaseClient.from('academy_enrollments').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId).gt('progress_percentage', 0).lt('progress_percentage', 100);
+                const { count: certs } = await supabaseClient.from('academy_certificates').select('*', { count: 'exact', head: true }).eq('seller_id', sellerId);
+                
+                document.getElementById('completedCount').textContent = completed || 0;
+                document.getElementById('inProgressCount').textContent = inProgress || 0;
+                document.getElementById('certCount').textContent = certs || 0;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function filterCourses() {
+            loadCourses();
+        }
+
+        async function openCourse(courseId) {
+            currentCourse = allCourses.find(c => c.id === courseId);
+            if (!currentCourse) return;
+
+            // Enroll seller if not enrolled
+            await supabaseClient.from('academy_enrollments').upsert({
+                seller_id: sellerId,
+                course_id: courseId,
+                enrolled_at: new Date().toISOString()
+            }, { onConflict: 'course_id,seller_id' });
+
+            // Load lessons
+            const { data: lessons } = await supabaseClient
+                .from('academy_lessons')
+                .select('*')
+                .eq('course_id', courseId)
+                .order('order_index', { ascending: true });
+
+            // Load progress
+            const { data: progress } = await supabaseClient
+                .from('academy_lesson_progress')
+                .select('*')
+                .eq('seller_id', sellerId);
+
+            // Load enrollment progress
+            const { data: enrollment } = await supabaseClient
+                .from('academy_enrollments')
+                .select('*')
+                .eq('seller_id', sellerId)
+                .eq('course_id', courseId)
+                .single();
+
+            // Update modal
+            document.getElementById('modalTitle').textContent = currentCourse.title;
+            document.getElementById('modalCategory').textContent = currentCourse.category || 'General';
+            document.getElementById('modalDuration').textContent = currentCourse.duration_minutes || 0;
+            document.getElementById('modalLevel').textContent = currentCourse.level;
+            document.getElementById('modalLessons').textContent = lessons?.length || 0;
+            document.getElementById('courseProgress').textContent = `${enrollment?.progress_percentage || 0}%`;
+            document.getElementById('progressBar').style.width = `${enrollment?.progress_percentage || 0}%`;
+
+            // Render lessons
+            const lessonsList = document.getElementById('lessonsList');
+            lessonsList.innerHTML = (lessons || []).map((lesson, i) => {
+                const lessonProgress = progress?.find(p => p.lesson_id === lesson.id);
+                const isCompleted = lessonProgress?.completed;
+                const isActive = i === 0 && !currentLesson;
+
+                return `
+                <div class="lesson-item p-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${isActive ? 'active' : ''} ${isCompleted ? 'completed bg-green-50' : ''}" onclick="playLesson('${lesson.id}', '${lesson.video_url}', '${lesson.title}', \`${lesson.description || ''}\`)">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isCompleted ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}">
+                            ${isCompleted ? '<i class="fas fa-check text-sm"></i>' : `<span class="text-sm font-medium">${i + 1}</span>`}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${lesson.title}</p>
+                            <p class="text-xs text-gray-500">${lesson.duration_minutes || 0} min</p>
+                        </div>
+                        ${lesson.is_preview ? '<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Preview</span>' : ''}
+                    </div>
+                </div>
+            `}).join('');
+
+            document.getElementById('courseModal').classList.remove('hidden');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').classList.add('hidden');
+            document.getElementById('videoFrame').src = '';
+            currentLesson = null;
+        }
+
+        async function playLesson(lessonId, videoUrl, title, description) {
+            currentLesson = lessonId;
+
+            // Update active state
+            document.querySelectorAll('.lesson-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            document.getElementById('lessonTitle').textContent = title;
+            document.getElementById('lessonDescription').textContent = description || 'No description';
+
+            // Set video
+            if (videoUrl) {
+                if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                    const videoId = videoUrl.split('v=')[1]?.split('&')[0] || videoUrl.split('/').pop();
+                    document.getElementById('videoFrame').src = `https://www.youtube.com/embed/${videoId}`;
+                } else if (videoUrl.includes('vimeo.com')) {
+                    const videoId = videoUrl.split('/').pop();
+                    document.getElementById('videoFrame').src = `https://player.vimeo.com/video/${videoId}`;
+                } else {
+                    document.getElementById('videoFrame').src = videoUrl;
+                }
+            }
+
+            // Mark as started
+            await supabaseClient.from('academy_lesson_progress').upsert({
+                seller_id: sellerId,
+                lesson_id: lessonId,
+                completed: false,
+                watch_time_seconds: 0
+            }, { onConflict: 'lesson_id,seller_id' });
+
+            // After some time, mark as completed (simplified - in real app, track actual watch time)
+            setTimeout(async () => {
+                await supabaseClient.from('academy_lesson_progress').update({
+                    completed: true,
+                    completed_at: new Date().toISOString()
+                }).eq('seller_id', sellerId).eq('lesson_id', lessonId);
+
+                // Update course progress
+                updateCourseProgress();
+            }, 10000); // Mark complete after 10 seconds for demo
+
+            showNotification('Lesson started! Complete it to earn progress.', 'info');
+        }
+
+        async function updateCourseProgress() {
+            if (!currentCourse) return;
+
+            // Count completed lessons
+            const { data: progress } = await supabaseClient
+                .from('academy_lesson_progress')
+                .select('lesson_id, completed')
+                .eq('seller_id', sellerId);
+
+            const { count: totalLessons } = await supabaseClient
+                .from('academy_lessons')
+                .select('*', { count: 'exact', head: true })
+                .eq('course_id', currentCourse.id);
+
+            const completedLessons = progress?.filter(p => p.completed).length || 0;
+            const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+            // Update enrollment
+            await supabaseClient.from('academy_enrollments').update({
+                progress_percentage: progressPercent,
+                completed_at: progressPercent === 100 ? new Date().toISOString() : null
+            }).eq('seller_id', sellerId).eq('course_id', currentCourse.id);
+
+            // Update UI
+            document.getElementById('courseProgress').textContent = `${progressPercent}%`;
+            document.getElementById('progressBar').style.width = `${progressPercent}%`;
+
+            // Create certificate if completed
+            if (progressPercent === 100) {
+                const certNumber = 'ESH-' + Date.now().toString(36).toUpperCase();
+                await supabaseClient.from('academy_certificates').insert({
+                    seller_id: sellerId,
+                    course_id: currentCourse.id,
+                    certificate_number: certNumber
+                });
+                showNotification('🎉 Congratulations! You completed the course!', 'success');
+            }
+
+            loadStats();
+        }
+
+        function joinLiveSession() {
+            const live = allSessions.find(s => s.is_live);
+            if (!live) return;
+
+            document.getElementById('liveModalTitle').textContent = live.title;
+            document.getElementById('liveFrame').src = `https://meet.jit.si/${live.room_name}`;
+            document.getElementById('liveModal').classList.remove('hidden');
+        }
+
+        function closeLiveModal() {
+            document.getElementById('liveModal').classList.add('hidden');
+            document.getElementById('liveFrame').src = '';
+        }
+
+        function leaveLiveSession() {
+            closeLiveModal();
+        }
+
+        async function registerSession(sessionId) {
+            await supabaseClient.from('academy_session_registrations').insert({
+                session_id: sessionId,
+                seller_id: sellerId
+            });
+            showNotification('Registered! You\'ll be notified before the session.', 'success');
+        }
+
+        function showNotification(msg, type) {
+            const n = document.createElement('div');
+            n.className = `fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} text-white`;
+            n.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${msg}`;
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 4000);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function logout() {
+            localStorage.removeItem('sellerId');
+            localStorage.removeItem('isLoggedIn');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

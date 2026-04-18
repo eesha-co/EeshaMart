@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Farmer Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <script src="../js/loader.js"></script>
+    <script>
+        // Auth check
+        (async function checkAuth() {
+            try {
+                const { data: { session }, error } = await window.supabase.auth.getSession();
+                if (error || !session) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --primary-color: #059669;
+            --primary-light: #10B981;
+            --primary-dark: #047857;
+            --secondary-color: #065f46;
+            --success-color: #22c55e;
+            --warning-color: #eab308;
+            --danger-color: #dc3545;
+            --light-color: #f0fdf4;
+            --dark-color: #14532d;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0fdf4;
+            min-height: 100vh;
+        }
+
+        .settings-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .settings-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #d1fae5;
+        }
+
+        .settings-header h1 {
+            font-size: 2rem;
+            color: var(--dark-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .settings-header p {
+            color: #6b7280;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .settings-nav {
+            background: var(--light-color);
+            padding: 1.5rem 0;
+            border-right: 1px solid #d1fae5;
+        }
+
+        .settings-nav ul { list-style: none; }
+
+        .settings-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem 1.5rem;
+            color: var(--dark-color);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .settings-nav a:hover { background: rgba(5, 150, 105, 0.1); }
+
+        .settings-nav a.active {
+            background: white;
+            color: var(--primary-color);
+            font-weight: 600;
+            position: relative;
+        }
+
+        .settings-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: var(--primary-color);
+        }
+
+        .settings-content {
+            padding: 2rem;
+            min-height: 600px;
+        }
+
+        .settings-section { display: none; }
+        .settings-section.active { display: block; }
+
+        .form-group { margin-bottom: 1.5rem; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #d1fae5;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .profile-image-upload {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background-color: var(--light-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 3px solid var(--primary-color);
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .upload-btn {
+            background: var(--light-color);
+            border: 2px dashed var(--primary-color);
+            padding: 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            color: var(--primary-color);
+        }
+
+        .upload-btn:hover {
+            background: rgba(5, 150, 105, 0.1);
+        }
+
+        .save-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .save-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .notification-setting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #d1fae5;
+        }
+
+        .notification-setting:last-child { border-bottom: none; }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        .danger-zone {
+            margin-top: 3rem;
+            padding: 1.5rem;
+            border: 2px solid var(--danger-color);
+            border-radius: 12px;
+            background: #fef2f2;
+        }
+
+        .danger-zone h3 { color: var(--danger-color); margin-bottom: 1rem; }
+
+        .delete-btn {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .delete-btn:hover { background: #c82333; }
+
+        @media (max-width: 768px) {
+            .settings-grid { grid-template-columns: 1fr; }
+            .settings-nav { border-right: none; border-bottom: 1px solid #d1fae5; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        #statusMessage {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            background: white;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <a href="index.html" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Back to Dashboard
+        </a>
+        <button id="logoutBtn" class="save-btn" style="padding: 0.5rem 1rem;">
+            <i class="fas fa-sign-out-alt mr-2"></i>Logout
+        </button>
+    </nav>
+
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1><i class="fas fa-cog mr-2"></i>Settings</h1>
+            <p>Manage your farm account settings and preferences</p>
+        </div>
+
+        <div class="settings-grid">
+            <nav class="settings-nav">
+                <ul>
+                    <li><a href="#profile" class="active" data-section="profile">
+                        <i class="fas fa-user"></i> Profile Settings
+                    </a></li>
+                    <li><a href="#farm" data-section="farm">
+                        <i class="fas fa-tractor"></i> Farm Details
+                    </a></li>
+                    <li><a href="#notifications" data-section="notifications">
+                        <i class="fas fa-bell"></i> Notifications
+                    </a></li>
+                    <li><a href="#security" data-section="security">
+                        <i class="fas fa-lock"></i> Security
+                    </a></li>
+                    <li><a href="#payment" data-section="payment">
+                        <i class="fas fa-credit-card"></i> Payment Settings
+                    </a></li>
+                </ul>
+            </nav>
+
+            <div class="settings-content">
+                <!-- Profile Settings -->
+                <div class="settings-section active" id="profile">
+                    <h2>Profile Settings</h2>
+                    <div class="profile-image-upload">
+                        <div id="profileImage" class="profile-image">
+                            <i class="fas fa-user text-4xl text-gray-400"></i>
+                        </div>
+                        <div class="upload-btn" id="uploadBtn">
+                            <i class="fas fa-camera"></i>
+                            <p>Upload new photo</p>
+                            <input type="file" id="imageInput" hidden accept="image/*">
+                        </div>
+                    </div>
+                    <form id="profileForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="firstName">First Name</label>
+                                <input type="text" id="firstName" name="firstName">
+                            </div>
+                            <div class="form-group">
+                                <label for="lastName">Last Name</label>
+                                <input type="text" id="lastName" name="lastName">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" readonly style="background: #f3f4f6;">
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone">
+                        </div>
+                        <button type="submit" class="save-btn">Save Changes</button>
+                    </form>
+                </div>
+
+                <!-- Farm Details -->
+                <div class="settings-section" id="farm">
+                    <h2>Farm Details</h2>
+                    <form id="farmForm">
+                        <div class="form-group">
+                            <label for="farmName">Farm Name</label>
+                            <input type="text" id="farmName" name="farmName" placeholder="e.g., Green Valley Farm">
+                        </div>
+                        <div class="form-group">
+                            <label for="farmDescription">Farm Description</label>
+                            <textarea id="farmDescription" name="farmDescription" rows="4" placeholder="Tell buyers about your farm..."></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="farmType">Farm Type</label>
+                                <select id="farmType" name="farmType">
+                                    <option value="">Select type</option>
+                                    <option value="crop">Crop Farming</option>
+                                    <option value="livestock">Livestock</option>
+                                    <option value="mixed">Mixed (Crops & Livestock)</option>
+                                    <option value="poultry">Poultry</option>
+                                    <option value="dairy">Dairy</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="farmSize">Farm Size (Hectares)</label>
+                                <input type="number" id="farmSize" name="farmSize" placeholder="e.g., 50">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="farmLocation">Farm Location</label>
+                            <input type="text" id="farmLocation" name="farmLocation" placeholder="e.g., Km 15, Abuja-Kaduna Road">
+                        </div>
+                        <div class="form-group">
+                            <label for="state">State</label>
+                            <select id="state" name="state">
+                                <option value="">Select state</option>
+                                <option value="Abia">Abia</option>
+                                <option value="Abuja">Abuja (FCT)</option>
+                                <option value="Adamawa">Adamawa</option>
+                                <option value="Kaduna">Kaduna</option>
+                                <option value="Kano">Kano</option>
+                                <option value="Lagos">Lagos</option>
+                                <option value="Oyo">Oyo</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="save-btn">Save Farm Details</button>
+                    </form>
+                </div>
+
+                <!-- Notifications -->
+                <div class="settings-section" id="notifications">
+                    <h2>Notification Settings</h2>
+                    <div class="notification-setting">
+                        <div>
+                            <h3>Order Notifications</h3>
+                            <p>Receive notifications for new orders</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="orderNotifications" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="notification-setting">
+                        <div>
+                            <h3>Stock Alerts</h3>
+                            <p>Get alerts when products are low in stock</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="stockAlerts" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="notification-setting">
+                        <div>
+                            <h3>Harvest Reminders</h3>
+                            <p>Reminders for upcoming harvests</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="harvestReminders" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="notification-setting">
+                        <div>
+                            <h3>Marketing Tips</h3>
+                            <p>Receive farming and marketing tips</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="marketingTips">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <button class="save-btn" style="margin-top: 1rem;">Save Preferences</button>
+                </div>
+
+                <!-- Security -->
+                <div class="settings-section" id="security">
+                    <h2>Security Settings</h2>
+                    <form id="securityForm">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" name="currentPassword">
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" name="newPassword">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm New Password</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword">
+                        </div>
+                        <button type="submit" class="save-btn">Update Password</button>
+                    </form>
+
+                    <div class="danger-zone">
+                        <h3><i class="fas fa-exclamation-triangle mr-2"></i>Danger Zone</h3>
+                        <p>Once you delete your account, there is no going back. Please be certain.</p>
+                        <button class="delete-btn" id="deleteAccount">Delete Account</button>
+                    </div>
+                </div>
+
+                <!-- Payment Settings -->
+                <div class="settings-section" id="payment">
+                    <h2>Payment Settings</h2>
+                    <form id="paymentForm">
+                        <div class="form-group">
+                            <label for="bankName">Bank Name</label>
+                            <select id="bankName" name="bankName">
+                                <option value="">Select bank</option>
+                                <option value="access">Access Bank</option>
+                                <option value="gtb">GTBank</option>
+                                <option value="first">First Bank</option>
+                                <option value="uba">UBA</option>
+                                <option value="zenith">Zenith Bank</option>
+                                <option value="kuda">Kuda Bank</option>
+                                <option value="opay">OPay</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="accountNumber">Account Number</label>
+                            <input type="text" id="accountNumber" name="accountNumber" placeholder="Enter account number">
+                        </div>
+                        <div class="form-group">
+                            <label for="accountName">Account Name</label>
+                            <input type="text" id="accountName" name="accountName" placeholder="Account holder name">
+                        </div>
+                        <button type="submit" class="save-btn">Save Payment Details</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusMessage"></div>
+
+    <script>
+        let supabase;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            supabase = window.supabase;
+
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+
+            // Load profile data
+            await loadProfile();
+
+            // Setup navigation
+            setupNavigation();
+
+            // Setup forms
+            setupForms();
+
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                window.location.href = 'login.html';
+            });
+        });
+
+        async function loadProfile() {
+            const { data: seller, error } = await supabase
+                .from('sellers')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (seller) {
+                document.getElementById('firstName').value = seller.first_name || '';
+                document.getElementById('lastName').value = seller.last_name || '';
+                document.getElementById('email').value = currentUser.email || '';
+                document.getElementById('phone').value = seller.phone || '';
+                document.getElementById('farmName').value = seller.farm_name || seller.business_name || '';
+                document.getElementById('farmDescription').value = seller.description || '';
+                document.getElementById('farmLocation').value = seller.location || '';
+                document.getElementById('state').value = seller.state || '';
+                document.getElementById('farmType').value = seller.farm_type || '';
+                document.getElementById('farmSize').value = seller.farm_size || '';
+
+                if (seller.profile_image) {
+                    document.getElementById('profileImage').innerHTML = `<img src="${seller.profile_image}" alt="Profile">`;
+                }
+            }
+        }
+
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.settings-nav a');
+            const sections = document.querySelectorAll('.settings-section');
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sectionId = link.dataset.section;
+
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+
+                    link.classList.add('active');
+                    document.getElementById(sectionId).classList.add('active');
+                });
+            });
+        }
+
+        function setupForms() {
+            // Profile form
+            document.getElementById('profileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const firstName = document.getElementById('firstName').value;
+                const lastName = document.getElementById('lastName').value;
+                const phone = document.getElementById('phone').value;
+
+                const { error } = await supabase
+                    .from('sellers')
+                    .update({
+                        first_name: firstName,
+                        last_name: lastName,
+                        phone: phone,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentUser.id);
+
+                if (error) {
+                    showStatus('Failed to update profile', 'error');
+                } else {
+                    showStatus('Profile updated successfully!', 'success');
+                }
+            });
+
+            // Farm form
+            document.getElementById('farmForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const farmName = document.getElementById('farmName').value;
+                const farmDescription = document.getElementById('farmDescription').value;
+                const farmType = document.getElementById('farmType').value;
+                const farmSize = document.getElementById('farmSize').value;
+                const farmLocation = document.getElementById('farmLocation').value;
+                const state = document.getElementById('state').value;
+
+                const { error } = await supabase
+                    .from('sellers')
+                    .update({
+                        farm_name: farmName,
+                        business_name: farmName,
+                        description: farmDescription,
+                        farm_type: farmType,
+                        farm_size: farmSize,
+                        location: farmLocation,
+                        state: state,
+                        business_type: 'FARMER',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentUser.id);
+
+                if (error) {
+                    showStatus('Failed to update farm details', 'error');
+                } else {
+                    showStatus('Farm details updated successfully!', 'success');
+                }
+            });
+
+            // Security form
+            document.getElementById('securityForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+
+                if (newPassword !== confirmPassword) {
+                    showStatus('Passwords do not match', 'error');
+                    return;
+                }
+
+                const { error } = await supabase.auth.updateUser({
+                    password: newPassword
+                });
+
+                if (error) {
+                    showStatus('Failed to update password', 'error');
+                } else {
+                    showStatus('Password updated successfully!', 'success');
+                    document.getElementById('securityForm').reset();
+                }
+            });
+
+            // Image upload
+            document.getElementById('uploadBtn').addEventListener('click', () => {
+                document.getElementById('imageInput').click();
+            });
+
+            document.getElementById('imageInput').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        document.getElementById('profileImage').innerHTML = `<img src="${event.target.result}" alt="Profile">`;
+                    };
+                    reader.readAsDataURL(file);
+                    showStatus('Profile image updated!', 'success');
+                }
+            });
+        }
+
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.style.backgroundColor = type === 'success' ? '#059669' : '#dc3545';
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

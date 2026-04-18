@@ -1,0 +1,10 @@
+<svg class="eeshpay-logo" viewBox="0 0 460 90" xmlns="http://www.w3.org/2000/svg" style="width:460px;transition:all .3s ease">
+  <defs>
+    <linearGradient id="g1"><stop offset="0%" stop-color="#1A1A1A"/><stop offset="100%" stop-color="#166534"/></linearGradient>
+    <linearGradient id="gold"><stop offset="0%" stop-color="#10B981"/><stop offset="100%" stop-color="#34D399"/></linearGradient>
+  </defs>
+  <text x="20" y="65" font-family="Arial,Helvetica,sans-serif" font-size="68" font-weight="900" fill="url(#g1)" letter-spacing="-0.5">Eeshpay</text>
+  <path class="arrow" d="M 90 68 Q 210 78, 420 68 L 410 58" stroke="url(#gold)" stroke-width="4.5" fill="none" stroke-linecap="round"
+        style="stroke-dasharray:380;stroke-dashoffset:380;animation:draw 1.8s ease-out forwards"/>
+  <style>.eeshpay-logo:hover{transform:translateY(-3px);filter:drop-shadow(0 6px 12px rgba(34,197,94,0.3))}@keyframes draw{to{stroke-dashoffset:0}}</style>
+</svg>

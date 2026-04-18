@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Eesha Seller Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <link rel="stylesheet" href="../css/back-button.css">
+    <script src="../js/loader.js"></script>
+    <script src="../js/protect-seller-route.js"></script>
+    <script src="../js/back-button.js"></script>
+    <style>
+        :root {
+            --primary-color: #f0474a;
+            --secondary-color: #2c3e50;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --sidebar-width: 280px;
+            --navbar-height: 70px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding-top: 135px; /* Add space for fixed navbar */
+        }
+
+        .content-wrapper {
+            margin-left: 0;
+            padding: 2rem;
+        }
+
+        .notifications-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .notifications-header h1 {
+            font-size: 2rem;
+            color: var(--dark-color);
+        }
+
+        .clear-all {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s;
+        }
+
+        .clear-all:hover {
+            background-color: rgba(240, 71, 74, 0.1);
+        }
+
+        .notification-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .notification-item {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+        }
+
+        .notification-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .notification-item.unread {
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .notification-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--light-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-message {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .notification-actions button {
+            background: none;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .mark-read {
+            color: var(--success-color);
+        }
+
+        .mark-read:hover {
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+
+        .delete-notification {
+            color: var(--danger-color);
+        }
+
+        .delete-notification:hover {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--secondary-color);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #ddd;
+        }
+
+        @media (max-width: 768px) {
+            .content-wrapper {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .notifications-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Common Navbar -->
+    <div id="navbar-container"></div>
+    <script>
+        // Helper: insert HTML into a container and execute scripts in it (sequentially)
+        async function insertHtmlAndRunScripts(container, html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            // Move non-script nodes into container
+            Array.from(temp.childNodes).forEach(node => {
+                if (node.tagName && node.tagName.toLowerCase() === 'script') return;
+                container.appendChild(node);
+            });
+
+            // Execute scripts sequentially
+            const scripts = temp.querySelectorAll('script');
+            for (const s of scripts) {
+                const newScript = document.createElement('script');
+                if (s.src) {
+                    newScript.src = s.src;
+                    await new Promise((resolve, reject) => {
+                        newScript.onload = resolve;
+                        newScript.onerror = reject;
+                        document.head.appendChild(newScript);
+                    });
+                } else {
+                    newScript.textContent = s.textContent;
+                    document.head.appendChild(newScript);
+                }
+            }
+        }
+
+        // Load navbar and initialize it before doing page-specific fetches
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('navbar-container');
+            // create a global promise so other scripts can await navbar readiness
+            window.navbarReady = (async () => {
+                try {
+                    const res = await fetch('../shared/navbar.html');
+                    const html = await res.text();
+                    await insertHtmlAndRunScripts(container, html);
+                    // If the navbar exposes an init function, call it (ensures supabase is ready)
+                    if (window.initSellerNavbar) {
+                        try {
+                            await window.initSellerNavbar();
+                        } catch (err) {
+                            console.error('Navbar init error:', err);
+                        }
+                    } else {
+                        console.warn('initSellerNavbar not found on window');
+                    }
+                } catch (err) {
+                    console.error('Failed to load navbar:', err);
+                }
+            })();
+
+            // ensure navbar is ready before proceeding with page-specific loads
+            try { await window.navbarReady; } catch (e) { console.warn('navbarReady failed', e); }
+        });
+    </script>
+    <div class="content-wrapper">
+        <div id="pageErrorBanner" style="display:none;background:#fff3f2;color:#6b1e1e;border:1px solid #f5c6cb;padding:10px;border-radius:6px;margin-bottom:12px;max-width:900px;">Notifications unavailable</div>
+        <div class="notifications-container">
+            <div class="notifications-header">
+                <h1>Notifications</h1>
+                <button class="clear-all" id="clearAll" aria-label="Mark all notifications as read">
+                    <i class="fas fa-check-double"></i>
+                    Mark all as read
+                </button>
+            </div>
+            <div class="notification-list" id="notificationList">
+                <!-- Notifications will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const notificationList = document.getElementById('notificationList');
+            const clearAllBtn = document.getElementById('clearAll');
+
+            // Initialize Supabase
+            const supabase = window.supabase;
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Fetch notifications from Supabase
+            async function fetchNotifications() {
+                try {
+                    const { data: notifications, error } = await supabase
+                        .from('notifications')
+                        .select('*')
+                        .eq('seller_id', user.id)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        console.error('Error fetching notifications:', error);
+                        // show a visible page-level banner
+                        const pageBanner = document.getElementById('pageErrorBanner');
+                        if (pageBanner) {
+                            pageBanner.style.display = 'block';
+                            pageBanner.textContent = 'Notifications service unavailable: ' + (error.message || error.code || 'server error');
+                        }
+                        return [];
+                    }
+
+                    return notifications || [];
+                } catch (err) {
+                    console.error('Unexpected error fetching notifications:', err);
+                    const pageBanner = document.getElementById('pageErrorBanner');
+                    if (pageBanner) {
+                        pageBanner.style.display = 'block';
+                        pageBanner.textContent = 'Notifications service error';
+                    }
+                    return [];
+                }
+            }
+
+            async function renderNotifications() {
+                const notifications = await fetchNotifications();
+                
+                if (notifications.length === 0) {
+                    notificationList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>No notifications</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                notificationList.innerHTML = notifications.map(notification => `
+                    <div class="notification-item ${notification.unread ? 'unread' : ''}" data-id="${notification.id}">
+                        <div class="notification-icon">
+                            <i class="fas fa-${getNotificationIcon(notification.type)}"></i>
+                        </div>
+                        <div class="notification-content">
+                            <div class="notification-title">${notification.title}</div>
+                            <div class="notification-message">${notification.message}</div>
+                            <div class="notification-time">${notification.time}</div>
+                            <div class="notification-actions">
+                                ${notification.unread ? `
+                                    <button class="mark-read" onclick="markAsRead(${notification.id})" aria-label="Mark notification as read">
+                                        <i class="fas fa-check"></i> Mark as read
+                                    </button>
+                                ` : ''}
+                                <button class="delete-notification" onclick="deleteNotification(${notification.id})" aria-label="Delete notification">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function getNotificationIcon(type) {
+                switch (type) {
+                    case 'order': return 'shopping-cart';
+                    case 'review': return 'star';
+                    case 'alert': return 'exclamation-circle';
+                    default: return 'bell';
+                }
+            }
+
+            window.markAsRead = async function(id) {
+                const { error } = await supabase
+                    .from('notifications')
+                    .update({ read: true })
+                    .eq('id', id);
+
+                if (!error) {
+                    await renderNotifications();
+                    await updateUnreadCount();
+                }
+            };
+
+            window.deleteNotification = async function(id) {
+                const { error } = await supabase
+                    .from('notifications')
+                    .delete()
+                    .eq('id', id);
+
+                if (!error) {
+                    await renderNotifications();
+                    await updateUnreadCount();
+                }
+            };
+
+            clearAllBtn.addEventListener('click', async function() {
+                const { error } = await supabase
+                    .from('notifications')
+                    .update({ read: true })
+                    .eq('seller_id', user.id)
+                    .eq('read', false);
+
+                if (!error) {
+                    await renderNotifications();
+                    await updateUnreadCount();
+                }
+            });
+
+            async function updateUnreadCount() {
+                try {
+                    const { count, error } = await supabase
+                        .from('notifications')
+                        .select('*', { count: 'exact' })
+                        .eq('seller_id', user.id)
+                        .eq('read', false);
+
+                    if (error) {
+                        console.warn('Could not get unread count:', error);
+                    }
+
+                    // Update the notification badge in the main dashboard
+                    const badge = document.querySelector('.notification-badge');
+                    if (badge) {
+                        badge.textContent = count || 0;
+                        badge.style.display = count > 0 ? 'block' : 'none';
+                    }
+                    // Store the count in localStorage for other pages
+                    localStorage.setItem('unreadNotifications', count || 0);
+                } catch (err) {
+                    console.error('updateUnreadCount failed:', err);
+                }
+            }
+
+            // Initial render — run page fetches after navbar init completed
+            try {
+                await renderNotifications();
+                await updateUnreadCount();
+            } catch (err) {
+                console.error('Error during initial notifications load:', err);
+            } finally {
+                // Hide global loader (loader.js creates pageLoader)
+                if (typeof hideLoader === 'function') hideLoader();
+            }
+        });
+    </script>
+</body>
+</html>

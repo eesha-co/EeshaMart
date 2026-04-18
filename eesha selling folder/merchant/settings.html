@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Eesha Seller Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Centralized Supabase initializer -->
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="../css/loader.css">
+    <link rel="stylesheet" href="../css/back-button.css">
+    <script src="../js/loader.js"></script>
+    <script src="../js/protect-seller-route.js"></script>
+    <script src="../js/back-button.js"></script>
+    <style>
+        :root {
+            --primary-color: #f0474a;
+            --secondary-color: #2c3e50;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --sidebar-width: 280px;
+            --navbar-height: 70px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding-top: 135px; /* Add space for fixed navbar */
+        }
+
+        .content-wrapper {
+            margin-left: 0;
+            padding: 2rem;
+        }
+
+        .settings-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .settings-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .settings-header h1 {
+            font-size: 2rem;
+            color: var(--dark-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .settings-header p {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .settings-nav {
+            background: var(--light-color);
+            padding: 1.5rem 0;
+            border-right: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .settings-nav ul {
+            list-style: none;
+        }
+
+        .settings-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1rem 1.5rem;
+            color: var(--dark-color);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .settings-nav a:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .settings-nav a.active {
+            background: white;
+            color: var(--primary-color);
+            font-weight: 600;
+            position: relative;
+        }
+
+        .settings-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: var(--primary-color);
+        }
+
+        .settings-content {
+            padding: 2rem;
+            min-height: 600px;
+        }
+
+        .settings-section {
+            display: none;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .profile-image-upload {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .upload-btn {
+            background: var(--light-color);
+            border: 1px dashed #ddd;
+            padding: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .upload-btn:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .save-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .save-btn:hover {
+            background: #d63d40;
+            transform: translateY(-2px);
+        }
+
+        .notification-setting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .notification-setting:last-child {
+            border-bottom: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .danger-zone {
+            margin-top: 3rem;
+            padding: 1.5rem;
+            border: 1px solid var(--danger-color);
+            border-radius: 8px;
+        }
+
+        .danger-zone h3 {
+            color: var(--danger-color);
+            margin-bottom: 1rem;
+        }
+
+        .delete-btn {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        @media (max-width: 768px) {
+            .content-wrapper {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-nav {
+                border-right: none;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Status message styles */
+        #statusMessage {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- Common Navbar -->
+    <div id="navbar-container"></div>
+    <script>
+        // Helper: insert HTML into a container and execute scripts in it (sequentially)
+        async function insertHtmlAndRunScripts(container, html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            // Move non-script nodes into container
+            Array.from(temp.childNodes).forEach(node => {
+                if (node.tagName && node.tagName.toLowerCase() === 'script') return;
+                container.appendChild(node);
+            });
+
+            // Execute scripts sequentially
+            const scripts = temp.querySelectorAll('script');
+            for (const s of scripts) {
+                const newScript = document.createElement('script');
+                if (s.src) {
+                    newScript.src = s.src;
+                    await new Promise((resolve, reject) => {
+                        newScript.onload = resolve;
+                        newScript.onerror = reject;
+                        document.head.appendChild(newScript);
+                    });
+                } else {
+                    newScript.textContent = s.textContent;
+                    document.head.appendChild(newScript);
+                }
+            }
+        }
+
+        // Load navbar and initialize it before doing page-specific fetches
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('navbar-container');
+            // create a global promise so other scripts can await navbar readiness
+            window.navbarReady = (async () => {
+                try {
+                    const res = await fetch('../shared/navbar.html');
+                    const html = await res.text();
+                    await insertHtmlAndRunScripts(container, html);
+
+                    // If the navbar exposes an init function, call it (ensures supabase is ready)
+                    if (window.initSellerNavbar) {
+                        try {
+                            await window.initSellerNavbar();
+                        } catch (err) {
+                            console.error('Navbar init error:', err);
+                        }
+                    } else {
+                        console.warn('initSellerNavbar not found on window');
+                    }
+                } catch (err) {
+                    console.error('Failed to load navbar:', err);
+                }
+            })();
+
+            // ensure navbar is ready before proceeding with page-specific loads
+            try { await window.navbarReady; } catch (e) { console.warn('navbarReady failed', e); }
+            // Wait for other page-level initializations (like settings.js) to finish
+            try {
+                await new Promise((resolve) => {
+                    let resolved = false;
+                    const timeout = setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 3000);
+                    function onReady() { if (!resolved) { resolved = true; clearTimeout(timeout); resolve(); } }
+                    window.addEventListener('settingsReady', onReady, { once: true });
+                });
+            } catch (e) {
+                console.warn('Waiting for settingsReady failed or timed out', e);
+            } finally {
+                if (typeof hideLoader === 'function') hideLoader();
+            }
+        });
+    </script>
+    <div class="content-wrapper">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1>Settings</h1>
+                <p>Manage your account settings and preferences</p>
+            </div>
+
+            <div class="settings-grid">
+                <nav class="settings-nav">
+                    <ul>
+                        <li><a href="#profile" class="active" data-section="profile">
+                            <i class="fas fa-user"></i> Profile Settings
+                        </a></li>
+                        <li><a href="#business" data-section="business">
+                            <i class="fas fa-store"></i> Business Details
+                        </a></li>
+                        <li><a href="#notifications" data-section="notifications">
+                            <i class="fas fa-bell"></i> Notifications
+                        </a></li>
+                        <li><a href="#security" data-section="security">
+                            <i class="fas fa-lock"></i> Security
+                        </a></li>
+                        <li><a href="#preferences" data-section="preferences">
+                            <i class="fas fa-cog"></i> Preferences
+                        </a></li>
+                    </ul>
+                </nav>
+
+                <div class="settings-content">
+                    <!-- Profile Settings -->
+                    <div class="settings-section active" id="profile">
+                        <h2>Profile Settings</h2>
+                        <div class="profile-image-upload">
+                            <div id="profileImage" class="profile-image">
+                                <!-- Will be populated with either an image or an icon -->
+                            </div>
+                            <div class="upload-btn" id="uploadBtn">
+                                <i class="fas fa-camera"></i>
+                                <p>Upload new photo</p>
+                                <input type="file" id="imageInput" hidden accept="image/*">
+                            </div>
+                        </div>
+                        <form id="profileForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="firstName">First Name</label>
+                                    <input type="text" id="firstName" name="firstName">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lastName">Last Name</label>
+                                    <input type="text" id="lastName" name="lastName">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" name="email">
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone Number</label>
+                                <input type="tel" id="phone" name="phone">
+                            </div>
+                            <button type="submit" class="save-btn">Save Changes</button>
+                        </form>
+                    </div>
+
+                    <!-- Business Details -->
+                    <div class="settings-section" id="business">
+                        <h2>Business Details</h2>
+                        <form id="businessForm">
+                            <div class="form-group">
+                                <label for="businessName">Business Name</label>
+                                <input type="text" id="businessName" name="businessName">
+                            </div>
+                            <div class="form-group">
+                                <label for="businessDescription">Business Description</label>
+                                <textarea id="businessDescription" name="businessDescription" rows="4"></textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="businessCategory">Business Category</label>
+                                    <select id="businessCategory" name="businessCategory">
+                                        <option value="">Select a category</option>
+                                        <option value="retail">Retail</option>
+                                        <option value="electronics">Electronics</option>
+                                        <option value="fashion">Fashion</option>
+                                        <option value="food">Food & Beverage</option>
+                                        <option value="health">Health & Beauty</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="businessLocation">Location</label>
+                                    <input type="text" id="businessLocation" name="businessLocation">
+                                </div>
+                            </div>
+                            <button type="submit" class="save-btn">Save Changes</button>
+                        </form>
+                    </div>
+
+                    <!-- Notifications -->
+                    <div class="settings-section" id="notifications">
+                        <h2>Notification Settings</h2>
+                        <div class="notification-setting">
+                            <div>
+                                <h3>Order Notifications</h3>
+                                <p>Receive notifications for new orders</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="orderNotifications" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="notification-setting">
+                            <div>
+                                <h3>Review Notifications</h3>
+                                <p>Get notified when you receive a new review</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="reviewNotifications" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="notification-setting">
+                            <div>
+                                <h3>Stock Alerts</h3>
+                                <p>Receive alerts when products are low in stock</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="stockAlerts" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <button class="save-btn">Save Preferences</button>
+                    </div>
+
+                    <!-- Security -->
+                    <div class="settings-section" id="security">
+                        <h2>Security Settings</h2>
+                        <form id="securityForm">
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <input type="password" id="currentPassword" name="currentPassword">
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <input type="password" id="newPassword" name="newPassword">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" name="confirmPassword">
+                            </div>
+                            <button type="submit" class="save-btn">Update Password</button>
+                        </form>
+
+                        <div class="danger-zone">
+                            <h3>Danger Zone</h3>
+                            <p>Once you delete your account, there is no going back. Please be certain.</p>
+                            <button class="delete-btn" id="deleteAccount">Delete Account</button>
+                        </div>
+                    </div>
+
+                    <!-- Preferences -->
+                    <div class="settings-section" id="preferences">
+                        <h2>Preferences</h2>
+                        <div class="form-group">
+                            <label for="language">Language</label>
+                            <select id="language" name="language">
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="timezone">Timezone</label>
+                            <select id="timezone" name="timezone">
+                                <!-- Will be populated with JavaScript -->
+                            </select>
+                        </div>
+                        <div class="notification-setting">
+                            <div>
+                                <h3>Dark Mode</h3>
+                                <p>Switch between light and dark theme</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="darkMode">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <button class="save-btn">Save Preferences</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/storage-config.js"></script>
+    <script src="../js/settings.js"></script>
+    <div id="statusMessage"></div>
+    <script>
+        // Add status message handler
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.style.backgroundColor = type === 'success' ? '#28a745' : '#dc3545';
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Listen for profile image updates
+        window.addEventListener('profileImageUpdated', (event) => {
+            const headerProfileImage = document.querySelector('.header-profile-image');
+            if (headerProfileImage) {
+                headerProfileImage.src = event.detail.url;
+            }
+        });
+    </script>
+</body>
+</html>

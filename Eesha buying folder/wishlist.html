@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Wishlist - EeshaMart | Nigeria's #1 Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <script src="../js/config/supabase.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="../index.html" class="flex items-center gap-2 group">
+                <div class="w-10 h-10 flex items-center justify-center">
+                    <svg viewBox="0 0 60 60" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fbbf24"/>
+                                <stop offset="50%" stop-color="#f59e0b"/>
+                                <stop offset="100%" stop-color="#d97706"/>
+                            </linearGradient>
+                            <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                              fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                        <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                              fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                              fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                        <g transform="translate(52, 8)">
+                            <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                    <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                </div>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="../index.html" class="text-gray-600 hover:text-brand-500">
+                    <i class="fas fa-home text-xl"></i>
+                </a>
+                <a href="cart.html" class="text-gray-600 hover:text-brand-500 relative">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-brand-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Back Link -->
+        <a href="../index.html" class="inline-flex items-center text-gray-600 hover:text-brand-500 mb-6">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Home
+        </a>
+
+        <div class="max-w-6xl mx-auto">
+            <!-- Page Title -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">My Wishlist</h1>
+                    <p class="text-gray-500 mt-1"><span id="wishlistCount">0</span> items saved</p>
+                </div>
+                <button id="clearAllBtn" class="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg hidden">
+                    <i class="fas fa-trash mr-2"></i> Clear All
+                </button>
+            </div>
+
+            <!-- Wishlist Grid -->
+            <div id="wishlistGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Loading state -->
+                <div class="col-span-full bg-white rounded-lg shadow p-8 text-center">
+                    <i class="fas fa-spinner loading text-4xl text-brand-500 mb-4"></i>
+                    <p class="text-gray-500">Loading your wishlist...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark-900 text-white py-8 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2025 EeshaMart. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const supabaseClient = window.supabase;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadWishlist();
+            await updateCartCount();
+        });
+
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session?.user) {
+                window.location.href = 'login.html?redirect=wishlist';
+                return;
+            }
+            currentUser = session.user;
+        }
+
+        async function loadWishlist() {
+            if (!currentUser) return;
+
+            const { data: wishlist, error } = await supabaseClient
+                .from('buyers_wishlist')
+                .select(`
+                    id,
+                    created_at,
+                    products(id, name, price, image_url, image, category, stock)
+                `)
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading wishlist:', error);
+                
+                // Check if table doesn't exist
+                if (error.code === '42P01' || error.message?.includes('does not exist')) {
+                    document.getElementById('wishlistGrid').innerHTML = `
+                        <div class="col-span-full bg-white rounded-lg shadow p-8 text-center">
+                            <i class="fas fa-database text-6xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2">Wishlist Table Not Set Up</h3>
+                            <p class="text-gray-500 mb-4">The buyers_wishlist table needs to be created in Supabase.</p>
+                            <p class="text-sm text-gray-400 mb-6">Please run the migration SQL (007_buyers_tables.sql) in your Supabase SQL Editor.</p>
+                            <a href="../index.html" class="inline-block bg-brand-500 text-white px-6 py-2 rounded-lg hover:bg-brand-600">
+                                Continue Shopping
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('wishlistGrid').innerHTML = `
+                        <div class="col-span-full bg-white rounded-lg shadow p-8 text-center text-red-500">
+                            <i class="fas fa-exclamation-circle text-4xl mb-4"></i>
+                            <p>Failed to load wishlist. Please try again.</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            document.getElementById('wishlistCount').textContent = wishlist?.length || 0;
+            document.getElementById('clearAllBtn').classList.toggle('hidden', !wishlist?.length);
+
+            if (!wishlist || wishlist.length === 0) {
+                document.getElementById('wishlistGrid').innerHTML = `
+                    <div class="col-span-full bg-white rounded-lg shadow p-8 text-center">
+                        <i class="fas fa-heart text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Your wishlist is empty</h3>
+                        <p class="text-gray-500 mb-6">Save items you love to buy them later!</p>
+                        <a href="../index.html" class="inline-block bg-brand-500 text-white px-6 py-2 rounded-lg hover:bg-brand-600">
+                            Start Shopping
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('wishlistGrid').innerHTML = wishlist.map(item => {
+                const product = item.products;
+                if (!product) return '';
+
+                return `
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition group">
+                        <div class="relative">
+                            <img src="${product.image_url || product.image || 'https://via.placeholder.com/300'}" 
+                                 alt="${product.name}"
+                                 class="w-full h-48 object-cover cursor-pointer"
+                                 onclick="viewProduct('${product.id}')">
+                            <button onclick="removeFromWishlist('${item.id}')" 
+                                    class="absolute top-2 right-2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-red-500 hover:bg-red-50">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            ${product.stock === 0 ? `
+                                <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm">Out of Stock</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="p-4">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide">${product.category || 'Category'}</p>
+                            <h3 class="font-semibold text-gray-900 mt-1 cursor-pointer hover:text-brand-500" onclick="viewProduct('${product.id}')">
+                                ${product.name}
+                            </h3>
+                            <div class="flex items-center justify-between mt-3">
+                                <span class="text-xl font-bold text-brand-500">$${(product.price || 0).toFixed(2)}</span>
+                            </div>
+                            <button onclick="addToCart('${product.id}', '${product.stock}')" 
+                                    class="w-full mt-4 py-2 rounded-lg text-center font-medium transition
+                                    ${product.stock === 0 
+                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                                        : 'bg-brand-500 text-white hover:bg-brand-600'}">
+                                <i class="fas fa-cart-plus mr-2"></i>
+                                ${product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function viewProduct(productId) {
+            window.location.href = `product.html?id=${productId}`;
+        }
+
+        async function removeFromWishlist(wishlistId) {
+            if (!confirm('Remove this item from your wishlist?')) return;
+
+            const { error } = await supabaseClient
+                .from('buyers_wishlist')
+                .delete()
+                .eq('id', wishlistId);
+
+            if (error) {
+                alert('Failed to remove item. Please try again.');
+                return;
+            }
+
+            loadWishlist();
+        }
+
+        async function addToCart(productId, stock) {
+            if (stock === '0') return;
+
+            try {
+                // Check if item already in cart
+                const { data: existingItem } = await supabaseClient
+                    .from('cart_items')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('product_id', productId)
+                    .single();
+
+                if (existingItem) {
+                    // Update quantity
+                    await supabaseClient
+                        .from('cart_items')
+                        .update({ quantity: existingItem.quantity + 1 })
+                        .eq('id', existingItem.id);
+                } else {
+                    // Insert new item
+                    await supabaseClient
+                        .from('cart_items')
+                        .insert([{
+                            user_id: currentUser.id,
+                            product_id: productId,
+                            quantity: 1
+                        }]);
+                }
+
+                alert('Added to cart!');
+                updateCartCount();
+            } catch (error) {
+                console.error('Error adding to cart:', error);
+                alert('Failed to add to cart. Please try again.');
+            }
+        }
+
+        document.getElementById('clearAllBtn').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to clear your entire wishlist?')) return;
+
+            const { error } = await supabaseClient
+                .from('buyers_wishlist')
+                .delete()
+                .eq('user_id', currentUser.id);
+
+            if (error) {
+                alert('Failed to clear wishlist. Please try again.');
+                return;
+            }
+
+            loadWishlist();
+        });
+
+        async function updateCartCount() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const user = session?.user;
+            let count = 0;
+
+            if (user) {
+                const { data: rows } = await supabaseClient
+                    .from('cart_items')
+                    .select('quantity')
+                    .eq('user_id', user.id);
+                if (rows) count = rows.reduce((s, r) => s + (r.quantity || 0), 0);
+            }
+
+            const el = document.getElementById('cartCount');
+            if (el) el.textContent = count;
+        }
+    </script>
+</body>
+</html>

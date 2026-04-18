@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - EeshaMart | Nigeria's #1 Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+        
+        .input-field {
+            transition: all 0.3s ease;
+        }
+        .input-field:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 15px rgba(245, 158, 11, 0.15);
+        }
+
+        .step-section {
+            display: none;
+        }
+
+        .step-section.active {
+            display: block;
+        }
+
+        .step-indicator {
+            transition: all 0.3s ease;
+        }
+
+        .step-indicator.active {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .step-indicator.completed {
+            background: #22c55e;
+            color: white;
+        }
+
+        .payment-option {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+        }
+
+        .payment-option:hover {
+            border-color: #f59e0b;
+            transform: translateY(-2px);
+        }
+
+        .payment-option.selected {
+            border-color: #f59e0b;
+            background: #fef2f2;
+        }
+
+        .place-order-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            transition: all 0.3s ease;
+        }
+
+        .place-order-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(240, 71, 74, 0.15);
+        }
+
+        .place-order-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl shadow-xl">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-brand-500 border-t-transparent"></div>
+                <p class="mt-4 text-gray-700 font-medium" id="loading-text">Processing your order...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg hidden z-50 transition-all transform translate-x-full">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="error-message">Error message</span>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="success-toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg hidden z-50 transition-all transform translate-x-full">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-check-circle"></i>
+            <span id="success-message">Success message</span>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="../index.html" class="flex items-center gap-2 group">
+                    <div class="w-10 h-10 flex items-center justify-center">
+                        <svg viewBox="0 0 60 60" class="w-full h-full">
+                            <defs>
+                                <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#fbbf24"/>
+                                    <stop offset="50%" stop-color="#f59e0b"/>
+                                    <stop offset="100%" stop-color="#d97706"/>
+                                </linearGradient>
+                                <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                                  fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                            <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                                  fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                                  fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                            <g transform="translate(52, 8)">
+                                <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                        <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                    </div>
+                </a>
+                <div class="flex items-center gap-4">
+                    <a href="../index.html" class="text-gray-600 hover:text-brand-500 transition-colors">
+                        <i class="fas fa-home text-xl"></i>
+                    </a>
+                    <div class="relative">
+                        <i class="fas fa-shopping-cart text-xl text-gray-600"></i>
+                        <span id="cart-count" class="absolute -top-2 -right-2 bg-brand-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Breadcrumb -->
+    <div class="bg-white border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <nav class="flex items-center space-x-2 text-sm text-gray-500">
+                <a href="../index.html" class="hover:text-brand-500 transition-colors">Home</a>
+                <i class="fas fa-chevron-right text-xs"></i>
+                <a href="cart.html" class="hover:text-brand-500 transition-colors">Cart</a>
+                <i class="fas fa-chevron-right text-xs"></i>
+                <span class="text-gray-900 font-medium">Checkout</span>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 py-3 sticky top-16 z-30">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="step-1-indicator" class="step-indicator active">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-white text-brand-500 font-bold text-sm">1</span>
+                    <span class="text-white text-sm">Shipping</span>
+                </div>
+                <div class="hidden sm:block h-1 w-px-4 border-l border-white/30"></div>
+                <div id="step-2-indicator" class="step-indicator">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-white/70 text-brand-500 font-bold text-sm">2</span>
+                    <span class="text-white/70 text-sm">Payment</span>
+                </div>
+                <div class="hidden sm:block h-1 w-px-4 border-l border-white/30"></div>
+                <div id="step-3-indicator" class="step-indicator">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-white/70 text-brand-500 font-bold text-sm">3</span>
+                    <span class="text-white/70 text-sm">Review</span>
+                </div>
+                <a href="cart.html" class="text-white text-sm hover:text-white/80 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back to Cart
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column - Steps -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Step 1: Shipping Information -->
+                <section id="step-1" class="step-section active bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-brand-500-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-truck text-brand-500 text-lg"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900">Shipping Information</h2>
+                    </div>
+
+                    <form id="shipping-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="fullname" class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                                <input type="text" id="fullname" required
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                            </div>
+                            <div>
+                                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                                <input type="email" id="email" required
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                            <input type="tel" id="phone" required
+                                   class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                        </div>
+                        <div>
+                            <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Street Address *</label>
+                            <input type="text" id="address" required
+                                   class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                                <input type="text" id="city" required
+                                       class="input-field px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                            </div>
+                            <div>
+                                <label for="state" class="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                                <input type="text" id="state" required
+                                       class="input-field px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                            </div>
+                            <div>
+                                <label for="zipcode" class="block text-sm font-medium text-gray-700 mb-1">ZIP Code *</label>
+                                <input type="text" id="zipcode" required
+                                       class="input-field px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-primary/20">
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Step 2: Payment Method -->
+                <section id="step-2" class="step-section bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-brand-500-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-credit-card text-brand-500 text-lg"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900">Payment Method</h2>
+                    </div>
+
+                    <!-- EeshaPay Option -->
+                    <div class="mb-4">
+                        <label class="payment-option block p-4 border-2 border-gray-200 rounded-xl cursor-pointer" onclick="selectPayment('eeshapay')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center">
+                                        <span class="text-white font-bold text-xs">EeshaPay</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">EeshaPay Wallet</p>
+                                        <p class="text-sm text-gray-500">Pay with your wallet balance</p>
+                                        <p class="text-xs text-green-600 mt-1" id="wallet-balance">Balance: Loading...</p>
+                                    </div>
+                                </div>
+                                <div class="w-6 h-6 border-2 border-gray-300 rounded-full flex items-center justify-center" id="eeshapay-check">
+                                    <i class="fas fa-check text-brand-500 hidden"></i>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Credit Card Option -->
+                    <div class="mb-4">
+                        <label class="payment-option block p-4 border-2 border-gray-200 rounded-xl cursor-pointer" onclick="selectPayment('card')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-credit-card text-white text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">Credit / Debit Card</p>
+                                        <p class="text-sm text-gray-500">Visa, Mastercard, Amex</p>
+                                    </div>
+                                </div>
+                                <div class="w-6 h-6 border-2 border-gray-300 rounded-full flex items-center justify-center" id="card-check">
+                                    <i class="fas fa-check text-brand-500 hidden"></i>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Cash on Delivery Option -->
+                    <div class="mb-4">
+                        <label class="payment-option block p-4 border-2 border-gray-200 rounded-xl cursor-pointer" onclick="selectPayment('cod')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-700 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-money-bill-wave text-white text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">Cash on Delivery</p>
+                                        <p class="text-sm text-gray-500">Pay when you receive your order</p>
+                                        <p class="text-xs text-orange-600 mt-1">+$5.00 COD fee</p>
+                                    </div>
+                                </div>
+                                <div class="w-6 h-6 border-2 border-gray-300 rounded-full flex items-center justify-center" id="cod-check">
+                                    <i class="fas fa-check text-brand-500 hidden"></i>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Card Details Form -->
+                    <div id="card-form" class="hidden mt-4 p-4 bg-gray-50 rounded-xl">
+                        <h3 class="font-semibold text-gray-900 mb-3">Card Details</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
+                                <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19"
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                                    <input type="text" id="card-expiry" placeholder="MM/YY" maxlength="7"
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">CVV</label>
+                                    <input type="text" id="card-cvv" placeholder="123" maxlength="4"
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Name on Card</label>
+                                <input type="text" id="card-name" placeholder="John Doe"
+                                       class="input-field w-full px-4 py-3 border border-gray-200 rounded-xl">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 3: Review & Place Order -->
+                <section id="step-3" class="step-section bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-brand-500-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-check-circle text-brand-500 text-lg"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900">Review & Place Order</h2>
+                    </div>
+
+                    <!-- Order Summary Review -->
+                    <div id="review-summary" class="space-y-4">
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-2">Shipping Address</h4>
+                            <p class="text-gray-600 text-sm" id="review-shipping"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-2">Payment Method</h4>
+                            <p class="text-gray-600 text-sm" id="review-payment"></p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-2">Order Items</h4>
+                            <div id="review-items" class="text-gray-600 text-sm"></div>
+                        </div>
+                    </div>
+
+                    <!-- Place Order Button -->
+                    <button onclick="placeOrder()" id="place-order-btn" 
+                            class="place-order-btn w-full py-4 text-white font-semibold rounded-xl flex items-center justify-center gap-2">
+                        <i class="fas fa-lock"></i>
+                        <span id="place-order-text">Place Order</span>
+                    </button>
+
+                    <p class="text-center text-gray-500 text-sm mt-4">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        Secure checkout with SSL encryption
+                    </p>
+                </section>
+            </div>
+
+            <!-- Right Column - Order Summary -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">Order Summary</h3>
+                    <div id="order-items" class="space-y-4 max-h-64 overflow-y-auto mb-4">
+                        <!-- Items populated by JS -->
+                    </div>
+
+                    <div class="border-t pt-4 mt-4 space-y-3">
+                        <div class="flex justify-between text-gray-600">
+                            <span>Subtotal</span>
+                            <span id="subtotal" class="font-semibold text-gray-900">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-gray-600">
+                            <span>Shipping</span>
+                            <span id="shipping-cost" class="font-semibold text-gray-900">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-gray-600">
+                            <span>Tax (10%)</span>
+                            <span id="tax" class="font-semibold text-gray-900">$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-gray-600 pt-4 border-t border-dashed">
+                            <span>COD Fee</span>
+                            <span id="cod-fee" class="font-semibold text-orange-600">$0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-4 border-t-2 border-gray-900">
+                            <span class="text-lg font-bold text-gray-900">Total</span>
+                            <span id="total" class="text-2xl font-bold text-brand-500">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fixed Navigation -->
+        <div class="fixed bottom-6 left-6 md:left-auto md:right-6 lg:right-12 z-50 bg-white/95 backdrop-blur-sm shadow-lg rounded-full px-6 py-4 max-w-3xl mx-auto flex items-center justify-between gap-4">
+            <button id="back-btn" onclick="goBack()" class="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back
+            </button>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-500">Step <span id="step-label">1</span> of 3</span>
+            </div>
+            <button id="continue-btn" onclick="goNext()" class="px-6 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-500-600 transition-colors">
+                <span id="continue-text">Continue</span>
+                <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="../../js/config/supabase.js"></script>
+    <script>
+        // Initialize Supabase
+        const supabaseClient = window.supabase;
+        
+        // State
+        let currentStep = 1;
+        let pendingOrder = null;
+        let selectedPayment = 'eeshapay';
+        let currentUser = null;
+        let walletBalance = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadPendingOrder();
+        });
+
+        // Check authentication
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            currentUser = session?.user || null;
+
+            if (!currentUser) {
+                // For guest users, can still continue but won't have EeshaPay option
+                document.getElementById('wallet-balance').textContent = 'Login to use EeshaPay';
+                document.getElementById('wallet-balance').classList.remove('text-green-600');
+                document.getElementById('wallet-balance').classList.add('text-gray-500');
+            } else {
+                // Load wallet balance
+                await loadWalletBalance();
+            }
+        }
+
+        // Load wallet balance from Supabase
+        async function loadWalletBalance() {
+            if (!currentUser) {
+                document.getElementById('wallet-balance').textContent = 'Login to use EeshaPay';
+                return;
+            }
+
+            try {
+                const { data: wallet, error } = await supabaseClient
+                    .from('eeshapay_wallets')
+                    .select('balance')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (wallet) {
+                    walletBalance = wallet.balance || 0;
+                    document.getElementById('wallet-balance').textContent = `Balance: $${walletBalance.toFixed(2)}`;
+                }
+            } catch (error) {
+                console.error('Error loading wallet:', error);
+            }
+        }
+
+        // Load pending order from localStorage
+        async function loadPendingOrder() {
+            const pendingOrderId = localStorage.getItem('pendingOrderId');
+            
+            if (!pendingOrderId) {
+                showToast('No pending order found. Redirecting to cart...', 'error');
+                setTimeout(() => window.location.href = 'cart.html', 2000);
+                return;
+            }
+
+            try {
+                const { data: order, error } = await supabaseClient
+                    .from('pending_orders')
+                    .select('*')
+                    .eq('id', pendingOrderId)
+                    .single();
+
+                if (error) throw error;
+
+                pendingOrder = order;
+                renderOrderSummary();
+            } catch (error) {
+                console.error('Error loading order:', error);
+                showToast('Error loading order. Please try again.', 'error');
+            }
+        }
+
+        // Render order summary in sidebar
+        function renderOrderSummary() {
+            if (!pendingOrder) return;
+
+            const container = document.getElementById('order-items');
+            container.innerHTML = pendingOrder.items.map(item => `
+                <div class="flex items-center gap-3 py-2">
+                    <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
+                        <img src="${item.image || 'https://via.placeholder.com/48'}" alt="${item.name}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate">${item.name}</p>
+                        <p class="text-xs text-gray-500">Qty: ${item.quantity}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-900">$${(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update totals
+            document.getElementById('subtotal').textContent = `$${(pendingOrder.subtotal || 0).toFixed(2)}`;
+            document.getElementById('shipping-cost').textContent = `$${(pendingOrder.shipping || 0).toFixed(2)}`;
+            document.getElementById('tax').textContent = `$${(pendingOrder.tax || 0).toFixed(2)}`;
+            
+            const codFee = selectedPayment === 'cod' ? 5 : 0;
+            document.getElementById('cod-fee').textContent = `$${codFee.toFixed(2)}`;
+            document.getElementById('cod-fee').parentElement.classList.toggle('hidden', selectedPayment !== 'cod');
+            
+            const total = (pendingOrder.total || 0) + codFee;
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Step navigation
+        function showStep(step) {
+            currentStep = step;
+            
+            // Hide all steps
+            document.querySelectorAll('.step-section').forEach(s => s.classList.remove('active'));
+            
+            // Show current step
+            document.getElementById(`step-${step}`).classList.add('active');
+            
+            // Update indicators
+            document.querySelectorAll('.step-indicator').forEach((indicator, index) => {
+                indicator.classList.remove('active', 'completed');
+                if (index + 1 < step) {
+                    indicator.classList.add('completed');
+                } else if (index + 1 === step) {
+                    indicator.classList.add('active');
+                }
+            });
+            
+            // Update buttons
+            const backBtn = document.getElementById('back-btn');
+            const continueBtn = document.getElementById('continue-btn');
+            const continueText = document.getElementById('continue-text');
+            
+            backBtn.classList.toggle('hidden', step === 1);
+            
+            if (step === 3) {
+                continueBtn.classList.add('hidden');
+                document.getElementById('place-order-btn').classList.remove('hidden');
+            } else {
+                continueBtn.classList.remove('hidden');
+                document.getElementById('place-order-btn').classList.add('hidden');
+                continueText.textContent = step === 1 ? 'Continue to Payment' : 'Review Order';
+            }
+            
+            // Update step label
+            document.getElementById('step-label').textContent = step;
+        }
+
+        function goNext() {
+            if (currentStep === 1) {
+                // Validate shipping form
+                if (!validateShippingForm()) return;
+                showStep(2);
+            } else if (currentStep === 2) {
+                showStep(3);
+                updateReview();
+            }
+        }
+
+        function goBack() {
+            if (currentStep > 1) {
+                showStep(currentStep - 1);
+            }
+        }
+
+        // Validate shipping form
+        function validateShippingForm() {
+            const fields = ['fullname', 'email', 'phone', 'address', 'city', 'state', 'zipcode'];
+            for (const field of fields) {
+                const input = document.getElementById(field);
+                if (!input.value.trim()) {
+                    showToast(`Please fill in ${field.replace('_', ' ')}`, 'error');
+                    input.focus();
+                    return false;
+                }
+            }
+            
+            // Validate email format
+            const email = document.getElementById('email').value;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showToast('Please enter a valid email address', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Select payment method
+        function selectPayment(method) {
+            selectedPayment = method;
+            
+            // Update UI
+            document.querySelectorAll('.payment-option').forEach(opt => {
+                opt.classList.remove('selected');
+                opt.querySelector('.fa-check').classList.add('hidden');
+            });
+            
+            const selected = document.querySelector(`[onclick="selectPayment('${method}')"]`);
+            selected.classList.add('selected');
+            selected.querySelector('.fa-check').classList.remove('hidden');
+            
+            // Show/hide card form
+            document.getElementById('card-form').classList.toggle('hidden', method !== 'card');
+            
+            // Update totals if COD
+            renderOrderSummary();
+        }
+
+        // Update review section
+        function updateReview() {
+            // Shipping address
+            const shipping = `
+                <p>${document.getElementById('fullname').value}</p>
+                <p>${document.getElementById('address').value}</p>
+                <p>${document.getElementById('city').value}, ${document.getElementById('state').value} ${document.getElementById('zipcode').value}</p>
+            `;
+            document.getElementById('review-shipping').innerHTML = shipping;
+            
+            // Payment method
+            let paymentText = '';
+            if (selectedPayment === 'eeshapay') {
+                paymentText = `<p class="font-semibold text-brand-500">EeshaPay Wallet</p><p class="text-sm text-gray-500">Balance: $${walletBalance.toFixed(2)}</p>`;
+            } else if (selectedPayment === 'card') {
+                const last4 = document.getElementById('card-number').value.slice(-4);
+                paymentText = `<p class="font-semibold">Card ending in ${last4}</p><p class="text-sm text-gray-500">${document.getElementById('card-name').value}</p>`;
+            } else {
+                paymentText = `<p class="font-semibold text-green-600">Cash on Delivery</p><p class="text-sm text-gray-500">Pay when you receive your order (+$5.00 fee)</p>`;
+            }
+            document.getElementById('review-payment').innerHTML = paymentText;
+            
+            // Order items
+            const itemsHtml = pendingOrder.items.map(item => `
+                <div class="flex justify-between py-1">
+                    <span>${item.name} x ${item.quantity}</span>
+                    <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('');
+            document.getElementById('review-items').innerHTML = itemsHtml;
+        }
+
+        // Place order
+        async function placeOrder() {
+            // Validate card details if card payment
+            if (selectedPayment === 'card') {
+                const cardNumber = document.getElementById('card-number').value;
+                const cardExpiry = document.getElementById('card-expiry').value;
+                const cardCvv = document.getElementById('card-cvv').value;
+                const cardName = document.getElementById('card-name').value;
+                
+                if (!cardNumber || cardNumber.length < 16) {
+                    showToast('Please enter a valid card number', 'error');
+                return;
+                }
+                if (!cardExpiry || !cardCvv || !cardName) {
+                    showToast('Please fill in all card details', 'error');
+                return;
+                }
+            }
+            
+            // Check EeshaPay balance
+            if (selectedPayment === 'eeshapay') {
+                if (walletBalance < pendingOrder.total) {
+                    showToast('Insufficient wallet balance. Please add funds or choose another payment method.', 'error');
+                    return;
+                }
+            }
+
+            // Show loading
+            showLoading(true);
+            
+            try {
+                // Create order
+                const orderData = {
+                    user_id: currentUser?.id || null,
+                    items: pendingOrder.items,
+                    shipping_address: {
+                        fullname: document.getElementById('fullname').value,
+                        email: document.getElementById('email').value,
+                        phone: document.getElementById('phone').value,
+                        address: document.getElementById('address').value,
+                        city: document.getElementById('city').value,
+                        state: document.getElementById('state').value,
+                        zipcode: document.getElementById('zipcode').value
+                    },
+                    subtotal: pendingOrder.subtotal,
+                    shipping: pendingOrder.shipping,
+                    tax: pendingOrder.tax,
+                    total: pendingOrder.total + (selectedPayment === 'cod' ? 5 : 0),
+                    payment_method: selectedPayment,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+                
+                // Insert order
+                const { data: order, error: orderError } = await supabaseClient
+                    .from('orders')
+                    .insert(orderData)
+                    .select()
+                    .single();
+                
+                if (orderError) throw orderError;
+                
+                // If EeshaPay, deduct from wallet
+                if (selectedPayment === 'eeshapay' && currentUser) {
+                    const newBalance = walletBalance - order.total;
+                    await supabaseClient
+                        .from('eeshapay_wallets')
+                        .update({ balance: newBalance })
+                        .eq('user_id', currentUser.id);
+                    
+                    // Add transaction
+                    await supabaseClient
+                        .from('eeshapay_transactions')
+                        .insert({
+                            user_id: currentUser.id,
+                            type: 'debit',
+                            amount: order.total,
+                            description: `Order #${order.id}`,
+                            status: 'completed'
+                        });
+                }
+                
+                // Clear cart
+                if (currentUser) {
+                    await supabaseClient
+                        .from('cart_items')
+                        .delete()
+                        .eq('user_id', currentUser.id);
+                } else {
+                    localStorage.removeItem('cart');
+                }
+                
+                // Delete pending order
+                await supabaseClient
+                    .from('pending_orders')
+                    .delete()
+                    .eq('id', pendingOrder.id);
+                
+                localStorage.removeItem('pendingOrderId');
+                
+                // Show success
+                showLoading(false);
+                showToast('Order placed successfully!', 'success');
+                
+                // Redirect to confirmation
+                setTimeout(() => {
+                    window.location.href = `order-confirmation.html?id=${order.id}`;
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error placing order:', error);
+                showLoading(false);
+                showToast('Error placing order. Please try again.', 'error');
+            }
+        }
+
+        // UI Helpers
+        function showLoading(show) {
+            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+        }
+
+        function showToast(message, type) {
+            const toast = document.getElementById(`${type}-toast`);
+            document.getElementById(`${type}-message`).textContent = message;
+            toast.classList.remove('hidden');
+            toast.classList.remove('translate-x-full');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3000);
+        }
+
+        // Format card number input
+        document.getElementById('card-number')?.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
+            value = value.replace(/(\d{4})/g, '$1 ').trim();
+            e.target.value = value;
+        });
+    </script>
+</body>
+</html>

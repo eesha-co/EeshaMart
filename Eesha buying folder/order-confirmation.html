@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - EeshaMart | Nigeria's #1 Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+        
+        @keyframes confetti {
+            0% { transform: translateY(0) rotateZ(0); opacity: 1; }
+            100% { transform: translateY(100vh) rotateZ(720deg); opacity: 0; }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .confetti {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+        
+        .scale-in {
+            animation: scaleIn 0.5s ease-out forwards;
+        }
+        
+        .bounce {
+            animation: bounce 1s ease-out;
+        }
+        
+        .progress-step {
+            transition: all 0.3s ease;
+        }
+        
+        .progress-step.active .step-circle {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .progress-step.completed .step-circle {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .progress-line {
+            height: 2px;
+            background: #e5e7eb;
+            transition: background 0.3s ease;
+        }
+        
+        .progress-line.completed {
+            background: #22c55e;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Loading State -->
+    <div id="loading" class="flex items-center justify-center min-h-screen">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-brand-500 border-t-transparent mx-auto mb-4"></div>
+            <p class="text-gray-500">Loading order details...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="content" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <a href="../index.html" class="flex items-center gap-2 group">
+                        <div class="w-10 h-10 flex items-center justify-center">
+                            <svg viewBox="0 0 60 60" class="w-full h-full">
+                                <defs>
+                                    <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#fbbf24"/>
+                                        <stop offset="50%" stop-color="#f59e0b"/>
+                                        <stop offset="100%" stop-color="#d97706"/>
+                                    </linearGradient>
+                                    <filter id="headerLogoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <path d="M8 15 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 15 Q52 11 48 11 L12 11 Q8 11 8 15 Z" 
+                                      fill="url(#headerLogoGrad)" filter="url(#headerLogoGlow)"/>
+                                <path d="M18 11 Q18 2 30 2 Q42 2 42 11" 
+                                      fill="none" stroke="url(#headerLogoGrad)" stroke-width="4" stroke-linecap="round"/>
+                                <path d="M18 24 L38 24 M18 36 L32 36 M18 48 L38 48 M18 24 L18 48" 
+                                      fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+                                <g transform="translate(52, 8)">
+                                    <path d="M0 0 L1.5 4.5 L6 6 L1.5 7.5 L0 12 L-1.5 7.5 L-6 6 L-1.5 4.5 Z" fill="#fbbf24"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xl font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent leading-tight">EeshaMart</span>
+                            <span class="text-[8px] text-gray-400 tracking-widest uppercase -mt-1">Nigeria's #1</span>
+                        </div>
+                    </a>
+                    <a href="../index.html" class="text-gray-600 hover:text-brand-500 transition-colors">
+                        <i class="fas fa-home text-xl"></i>
+                    </a>
+                </div>
+            </nav>
+        </header>
+
+        <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <!-- Success Banner -->
+            <div class="text-center mb-12 fade-in-up">
+                <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 bounce">
+                    <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-check text-white text-3xl"></i>
+                    </div>
+                </div>
+                <h1 class="text-4xl font-bold text-gray-900 mb-2">Order Confirmed!</h1>
+                <p class="text-gray-500 text-lg">Thank you for your purchase</p>
+            </div>
+
+            <!-- Order Details Card -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-8 fade-in-up" style="animation-delay: 0.2s">
+                <div class="bg-gradient-to-r from-primary to-red-500 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/80 text-sm">Order Number</p>
+                            <p class="text-white text-xl font-bold" id="order-number"># Loading...</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-white/80 text-sm">Order Date</p>
+                            <p class="text-white font-medium" id="order-date">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Order Status Progress -->
+                    <div class="mb-8">
+                        <h3 class="font-semibold text-gray-900 mb-4">Order Status</h3>
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 text-center">
+                                <div class="progress-step active">
+                                    <div class="step-circle w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-2">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-gray-900">Confirmed</p>
+                                </div>
+                            </div>
+                            <div class="flex-1 h-1 bg-gray-200 mt-[-20px]"></div>
+                            <div class="flex-1 text-center">
+                                <div class="progress-step">
+                                    <div class="step-circle w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-2">
+                                        <i class="fas fa-box"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-500">Processing</p>
+                                </div>
+                            </div>
+                            <div class="flex-1 h-1 bg-gray-200 mt-[-20px]"></div>
+                            <div class="flex-1 text-center">
+                                <div class="progress-step">
+                                    <div class="step-circle w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-2">
+                                        <i class="fas fa-truck"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-500">Shipped</p>
+                                </div>
+                            </div>
+                            <div class="flex-1 h-1 bg-gray-200 mt-[-20px]"></div>
+                            <div class="flex-1 text-center">
+                                <div class="progress-step">
+                                    <div class="step-circle w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-2">
+                                        <i class="fas fa-home"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-500">Delivered</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Items -->
+                    <div class="mb-6">
+                        <h3 class="font-semibold text-gray-900 mb-4">Order Items</h3>
+                        <div id="order-items" class="space-y-3">
+                            <!-- Items loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Shipping Address -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-3">Shipping Address</h3>
+                            <div class="bg-gray-50 rounded-xl p-4">
+                                <p class="text-gray-600 text-sm" id="shipping-address">Loading...</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-3">Payment Method</h3>
+                            <div class="bg-gray-50 rounded-xl p-4">
+                                <p class="text-gray-600 text-sm" id="payment-method">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="border-t pt-6">
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-gray-600">
+                                <span>Subtotal</span>
+                                <span id="subtotal">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600">
+                                <span>Shipping</span>
+                                <span id="shipping">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600">
+                                <span>Tax</span>
+                                <span id="tax">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-gray-600" id="cod-fee-row" style="display: none;">
+                                <span>COD Fee</span>
+                                <span id="cod-fee">$5.00</span>
+                            </div>
+                            <div class="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t">
+                                <span>Total</span>
+                                <span class="text-brand-500" id="total">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 fade-in-up" style="animation-delay: 0.4s">
+                <a href="../index.html" class="flex-1 bg-white border-2 border-gray-200 text-gray-700 py-4 rounded-xl font-semibold text-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-shopping-bag mr-2"></i>
+                    Continue Shopping
+                </a>
+                <a href="orders.html" class="flex-1 bg-brand-500 text-white py-4 rounded-xl font-semibold text-center hover:bg-brand-600 transition-colors">
+                    <i class="fas fa-list mr-2"></i>
+                    View All Orders
+                </a>
+            </div>
+
+            <!-- Help Section -->
+            <div class="mt-8 text-center fade-in-up" style="animation-delay: 0.6s">
+                <p class="text-gray-500 text-sm">
+                    Need help? <a href="#" class="text-brand-500 hover:underline">Contact Support</a> or call us at <a href="tel:+1234567890" class="text-brand-500 hover:underline">+1 234 567 890</a>
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <script src="../../js/config/supabase.js"></script>
+    <script>
+        const supabaseClient = window.supabase;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const orderId = params.get('id');
+            
+            if (!orderId) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            try {
+                // Load order details
+                const { data: order, error } = await supabaseClient
+                    .from('orders')
+                    .select('*')
+                    .eq('id', orderId)
+                    .single();
+                
+                if (error) throw error;
+                
+                if (!order) {
+                    showError('Order not found');
+                    return;
+                }
+                
+                // Render order details
+                renderOrderDetails(order);
+                
+                // Create confetti
+                createConfetti();
+                
+                // Show content
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error loading order:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-exclamation text-red-500 text-2xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-2">Order Not Found</h2>
+                        <p class="text-gray-500 mb-4">We couldn't find your order details.</p>
+                        <a href="../index.html" class="text-brand-500 hover:underline">Go to Homepage</a>
+                    </div>
+                `;
+            }
+        });
+        
+        function renderOrderDetails(order) {
+            // Order number and date
+            document.getElementById('order-number').textContent = `# ${order.id.substring(0, 8).toUpperCase()}`;
+            document.getElementById('order-date').textContent = new Date(order.created_at).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            // Order items
+            const itemsContainer = document.getElementById('order-items');
+            if (order.items && order.items.length > 0) {
+                itemsContainer.innerHTML = order.items.map(item => `
+                    <div class="flex items-center gap-4 bg-gray-50 rounded-xl p-3">
+                        <img src="${item.image || 'https://via.placeholder.com/60'}" alt="${item.name}" class="w-14 h-14 rounded-lg object-cover">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">${item.name}</p>
+                            <p class="text-sm text-gray-500">Qty: ${item.quantity}</p>
+                        </div>
+                        <p class="font-semibold text-gray-900">$${(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                `).join('');
+            }
+            
+            // Shipping address
+            const addr = order.shipping_address || {};
+            document.getElementById('shipping-address').innerHTML = `
+                <p class="font-medium text-gray-900">${addr.fullname || 'N/A'}</p>
+                <p>${addr.address || ''}</p>
+                <p>${addr.city || ''}, ${addr.state || ''} ${addr.zipcode || ''}</p>
+                <p class="mt-2"><i class="fas fa-phone mr-2"></i>${addr.phone || 'N/A'}</p>
+                <p><i class="fas fa-envelope mr-2"></i>${addr.email || 'N/A'}</p>
+            `;
+            
+            // Payment method
+            let paymentText = '';
+            if (order.payment_method === 'eeshapay') {
+                paymentText = '<p class="font-medium text-brand-500"><i class="fas fa-wallet mr-2"></i>EeshaPay</p>';
+            } else if (order.payment_method === 'card') {
+                paymentText = '<p class="font-medium"><i class="fas fa-credit-card mr-2"></i>Credit/Debit Card</p>';
+            } else if (order.payment_method === 'cod') {
+                paymentText = '<p class="font-medium text-green-600"><i class="fas fa-money-bill mr-2"></i>Cash on Delivery</p>';
+                document.getElementById('cod-fee-row').style.display = 'flex';
+            }
+            document.getElementById('payment-method').innerHTML = paymentText;
+            
+            // Totals
+            document.getElementById('subtotal').textContent = `$${(order.subtotal || 0).toFixed(2)}`;
+            document.getElementById('shipping').textContent = order.shipping > 0 ? `$${order.shipping.toFixed(2)}` : 'Free';
+            document.getElementById('tax').textContent = `$${(order.tax || 0).toFixed(2)}`;
+            document.getElementById('total').textContent = `$${(order.total || 0).toFixed(2)}`;
+        }
+        
+        function createConfetti() {
+            const colors = ['#f59e0b', '#22c55e', '#3b82f6', '#fbbf24', '#a855f7'];
+            
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.top = '-10px';
+                    confetti.style.width = Math.random() * 10 + 5 + 'px';
+                    confetti.style.height = confetti.style.width;
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    confetti.style.animation = `confetti ${Math.random() * 2 + 2}s linear forwards`;
+                    
+                    document.body.appendChild(confetti);
+                    
+                    confetti.addEventListener('animationend', () => confetti.remove());
+                }, i * 50);
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('loading').innerHTML = `
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-exclamation text-red-500 text-2xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">Error</h2>
+                    <p class="text-gray-500">${message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

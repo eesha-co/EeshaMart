@@ -41,6 +41,17 @@ AUTH_STATE_PASSWORD = "waiting_password"
 
 # ==================== TELEGRAM API ====================
 
+async def send_typing_action(chat_id: int):
+    """Send 'typing' action to show user the bot is thinking"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendChatAction"
+    payload = {"chat_id": chat_id, "action": "typing"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(url, json=payload)
+    except Exception as e:
+        logger.error(f"Typing action error: {e}")
+
+
 async def send_telegram(chat_id: int, text: str):
     """Send message via Telegram API"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -471,19 +482,26 @@ async def telegram_webhook(request: Request):
             username = message.get("from", {}).get("username", "")
             text = message.get("text", "")
             
+            # Show typing indicator immediately so user knows bot is working
+            await send_typing_action(chat_id)
+            
             # Handle photo messages
             image_base64 = None
             if "photo" in message and message["photo"]:
                 photo = message["photo"][-1]
                 file_id = photo.get("file_id")
                 
-                await send_telegram(chat_id, "📸 _Analyzing image..._")
+                # Keep typing while processing image
+                await send_typing_action(chat_id)
                 
                 image_bytes = await download_telegram_photo(file_id)
                 if image_bytes:
                     image_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
             
             if text or image_base64:
+                # Show typing again before AI processing (which takes time)
+                await send_typing_action(chat_id)
+                
                 reply = await process_message(
                     chat_id,
                     user_id,

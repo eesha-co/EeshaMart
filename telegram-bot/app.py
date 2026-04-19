@@ -30,8 +30,8 @@ AI_BACKEND_URL = os.environ.get("AI_BACKEND_URL", "https://fuhaddesmond-eeshamar
 
 logger.info("🤖 EeshaMart Telegram Bot Starting...")
 
-# Storage
-linked_accounts: Dict[int, dict] = {}
+# Storage - NOW stores access_token for authenticated requests
+linked_accounts: Dict[int, dict] = {}  # {chat_id: {user_id, email, access_token, ...}}
 auth_sessions: Dict[int, dict] = {}
 user_sessions: Dict[int, dict] = {}
 
@@ -109,7 +109,7 @@ async def download_telegram_photo(file_id: str) -> Optional[bytes]:
     return None
 
 
-# ==================== SUPABASE ====================
+# ==================== SUPABASE WITH AUTH ====================
 
 async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
     """Verify user credentials with Supabase Auth"""
@@ -130,58 +130,72 @@ async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
     return None
 
 
-async def get_cart(user_id: str) -> List[dict]:
-    """Get user's cart from Supabase"""
+async def get_cart(user_id: str, access_token: str) -> List[dict]:
+    """Get user's cart from Supabase using authenticated request"""
     url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&select=id,quantity,product_id,products(id,name,price)"
-    headers = {"apikey": SUPABASE_KEY}
+    # IMPORTANT: Use Authorization header with user's access token
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {access_token}"
+    }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url, headers=headers)
+            logger.info(f"🛒 Get cart response: {response.status_code}")
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                logger.info(f"🛒 Cart items: {len(data) if data else 0}")
+                return data
+            else:
+                logger.error(f"Cart error: {response.status_code} - {response.text}")
     except Exception as e:
         logger.error(f"Cart error: {e}")
     return []
 
 
-async def add_to_cart_db(user_id: str, product_id: int, quantity: int = 1) -> bool:
-    """Add product to cart in Supabase"""
-    url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&product_id=eq.{product_id}&select=*"
-    headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json", "Prefer": "return=minimal"}
+async def add_to_cart_db(user_id: str, product_id: int, access_token: str, quantity: int = 1) -> bool:
+    """Add product to cart in Supabase using authenticated request"""
+    # Headers with Authorization
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, headers=headers)
-            existing = response.json()
-            if existing:
+            # First check if item exists
+            check_url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&product_id=eq.{product_id}&select=*"
+            check_response = await client.get(check_url, headers=headers)
+            logger.info(f"🛒 Check existing: {check_response.status_code}")
+            
+            existing = check_response.json() if check_response.status_code == 200 else []
+            
+            if existing and len(existing) > 0:
+                # Update quantity
                 new_qty = existing[0]["quantity"] + quantity
-                await client.patch(
-                    f"{SUPABASE_URL}/rest/v1/cart_items?id=eq.{existing[0]['id']}",
-                    headers=headers,
-                    json={"quantity": new_qty}
-                )
+                update_url = f"{SUPABASE_URL}/rest/v1/cart_items?id=eq.{existing[0]['id']}"
+                update_response = await client.patch(update_url, headers=headers, json={"quantity": new_qty})
+                logger.info(f"🛒 Update cart: {update_response.status_code}")
+                return update_response.status_code in [200, 204]
             else:
-                await client.post(
-                    f"{SUPABASE_URL}/rest/v1/cart_items",
-                    headers=headers,
-                    json={"user_id": user_id, "product_id": product_id, "quantity": quantity}
-                )
-        return True
+                # Insert new item
+                insert_url = f"{SUPABASE_URL}/rest/v1/cart_items"
+                insert_response = await client.post(insert_url, headers=headers, json={"user_id": user_id, "product_id": product_id, "quantity": quantity})
+                logger.info(f"🛒 Insert cart: {insert_response.status_code}")
+                return insert_response.status_code in [200, 201, 204]
     except Exception as e:
         logger.error(f"Add to cart error: {e}")
-        return False
+    return False
 
 
 # ==================== AI BACKEND ====================
 
 async def chat_with_ai(message: str, chat_id: int, image_base64: str = None) -> dict:
-    """
-    Send message to Qwen AI backend
-    - Natural conversation on ANY topic
-    - Smart intent understanding for shopping
-    """
+    """Send message to Qwen AI backend"""
     session = user_sessions.get(chat_id, {})
     
-    # Format cart items for backend
     cart_items = session.get("cart_items", [])
     formatted_cart = []
     for item in cart_items:
@@ -242,11 +256,7 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
     
     # Initialize session
     if chat_id not in user_sessions:
-        user_sessions[chat_id] = {
-            "last_products": [],
-            "history": [],
-            "cart_items": []
-        }
+        user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
     
     text_lower = text.strip().lower() if text else ""
     
@@ -272,16 +282,18 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
             auth_result = await verify_supabase_auth(email, password)
             
             if auth_result:
+                # Store user info INCLUDING access_token
                 linked_accounts[chat_id] = {
                     "user_id": auth_result["user_id"],
                     "email": email,
+                    "access_token": auth_result["access_token"],
                     "telegram_id": chat_id,
                     "username": username
                 }
                 del auth_sessions[chat_id]
                 
-                # Load cart
-                cart = await get_cart(auth_result["user_id"])
+                # Load cart using access token
+                cart = await get_cart(auth_result["user_id"], auth_result["access_token"])
                 user_sessions[chat_id]["cart_items"] = cart
                 
                 return f"""✅ *Welcome!*
@@ -337,11 +349,14 @@ _What's on your mind?_"""
 • "Tell me a joke"
 • Send a photo to find similar products!"""
     
+    # ==================== CART COMMAND ====================
+    
     if text_lower in ['/cart', 'cart', 'my cart']:
         if chat_id not in linked_accounts:
             return "🔐 Login first. Send /start"
         
-        cart = await get_cart(linked_accounts[chat_id]["user_id"])
+        account = linked_accounts[chat_id]
+        cart = await get_cart(account["user_id"], account["access_token"])
         user_sessions[chat_id]["cart_items"] = cart
         
         if cart:
@@ -371,34 +386,37 @@ Visit eeshamart.com to complete payment!"""
         if chat_id not in linked_accounts:
             return "🔐 Login first. Send /start"
         
+        account = linked_accounts[chat_id]
         products = user_sessions[chat_id].get("last_products", [])
         num = int(text_lower)
         
         if 1 <= num <= len(products):
             product = products[num - 1]
-            await add_to_cart_db(linked_accounts[chat_id]["user_id"], product["id"])
+            success = await add_to_cart_db(account["user_id"], product["id"], account["access_token"])
             
-            # Update cart in session
-            cart = await get_cart(linked_accounts[chat_id]["user_id"])
-            user_sessions[chat_id]["cart_items"] = cart
-            
-            return f"✅ Added *{product['name']}* to cart!\n\n_Anything else?_"
+            if success:
+                cart = await get_cart(account["user_id"], account["access_token"])
+                user_sessions[chat_id]["cart_items"] = cart
+                return f"✅ Added *{product['name']}* to cart!\n\n_Anything else?_"
+            else:
+                return "❌ Failed to add to cart. Please try again."
         elif products:
             return f"❌ Choose 1-{len(products)}"
     
-    # ==================== AI CHAT (Natural + Smart Intent) ====================
+    # ==================== AI CHAT ====================
     
     if chat_id not in linked_accounts:
         return "🔐 Login first to chat! Send /start"
     
-    # Send to AI backend for natural conversation + smart intent
+    account = linked_accounts[chat_id]
+    
+    # Send to AI backend
     ai_response = await chat_with_ai(text, chat_id, image_base64)
     logger.info(f"🤖 AI Response: {ai_response}")
     
     # Store in conversation history
     user_sessions[chat_id]["history"].append({"role": "user", "content": text})
     user_sessions[chat_id]["history"].append({"role": "assistant", "content": ai_response.get("response", "")})
-    # Keep last 12 messages
     if len(user_sessions[chat_id]["history"]) > 12:
         user_sessions[chat_id]["history"] = user_sessions[chat_id]["history"][-12:]
     
@@ -413,28 +431,30 @@ Visit eeshamart.com to complete payment!"""
         logger.info(f"🎯 Action: {action_type}")
         
         if action_type == "add_to_cart":
-            # Add product to cart
             product_index = action.get("product_index", 1)
             add_all = action.get("all", False)
             last_products = user_sessions[chat_id].get("last_products", [])
             
             if add_all and last_products:
                 for p in last_products:
-                    await add_to_cart_db(linked_accounts[chat_id]["user_id"], p["id"])
-                cart = await get_cart(linked_accounts[chat_id]["user_id"])
+                    await add_to_cart_db(account["user_id"], p["id"], account["access_token"])
+                cart = await get_cart(account["user_id"], account["access_token"])
                 user_sessions[chat_id]["cart_items"] = cart
                 response_text = f"✅ Added all {len(last_products)} products to cart!"
             elif 1 <= product_index <= len(last_products):
                 product = last_products[product_index - 1]
-                await add_to_cart_db(linked_accounts[chat_id]["user_id"], product["id"])
-                cart = await get_cart(linked_accounts[chat_id]["user_id"])
-                user_sessions[chat_id]["cart_items"] = cart
-                response_text = f"✅ Added *{product['name']}* to cart!"
+                success = await add_to_cart_db(account["user_id"], product["id"], account["access_token"])
+                if success:
+                    cart = await get_cart(account["user_id"], account["access_token"])
+                    user_sessions[chat_id]["cart_items"] = cart
+                    response_text = f"✅ Added *{product['name']}* to cart!"
+                else:
+                    response_text = "❌ Failed to add. Try again."
             else:
-                response_text = "Which product? Show me products first by searching!"
+                response_text = "Which product? Search for products first!"
         
         elif action_type == "view_cart":
-            cart = await get_cart(linked_accounts[chat_id]["user_id"])
+            cart = await get_cart(account["user_id"], account["access_token"])
             user_sessions[chat_id]["cart_items"] = cart
             
             if cart:
@@ -466,7 +486,6 @@ Visit eeshamart.com to complete your order."""
         user_sessions[chat_id]["last_products"] = products
         response_text += format_products(products)
     elif products is not None and len(products) == 0:
-        # Search was done but no results
         response_text += "\n\n❌ No products found. Try different keywords?"
     
     return response_text
@@ -484,7 +503,8 @@ async def root():
             "Natural AI Chat (Qwen2.5-3B)",
             "Smart Intent Understanding",
             "Image Analysis (BLIP)",
-            "Conversation Memory"
+            "Conversation Memory",
+            "Authenticated Cart Operations"
         ]
     }
 
@@ -517,7 +537,6 @@ async def telegram_webhook(request: Request):
                 photo = message["photo"][-1]
                 file_id = photo.get("file_id")
                 
-                # Keep typing while processing image
                 await send_typing_action(chat_id)
                 
                 image_bytes = await download_telegram_photo(file_id)
@@ -525,7 +544,6 @@ async def telegram_webhook(request: Request):
                     image_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
             
             if text or image_base64:
-                # Show typing again before AI processing (which takes time)
                 await send_typing_action(chat_id)
                 
                 reply = await process_message(
@@ -536,7 +554,6 @@ async def telegram_webhook(request: Request):
                     image_base64
                 )
                 
-                # Delete the "Thinking..." message before sending reply
                 if thinking_msg_id:
                     await delete_message(chat_id, thinking_msg_id)
                 

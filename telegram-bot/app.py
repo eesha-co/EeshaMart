@@ -1,7 +1,7 @@
 """
-EeshaMart Telegram Bot - Production Ready with Vision
-Email/Password Authentication + Direct Product Search + IMAGE UNDERSTANDING
-Uses Hugging Face backend for image analysis (no local model = low memory!)
+EeshaMart Telegram Bot - Production Ready with AI Chat + Vision
+Natural conversation powered by Qwen2.5-3B (via Hugging Face backend)
+Low memory - all AI processing happens on Hugging Face!
 
 Bot: https://t.me/eeshamart_bot
 """
@@ -22,17 +22,16 @@ import base64
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EeshaMart Telegram Bot with Vision")
+app = FastAPI(title="EeshaMart Telegram Bot with AI Chat + Vision")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8142562507:AAG-_UExIh18e6mz-0URKmv67-CQOk_cuA4")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://tcwdbokruvlizkxcpkzj.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg")
-# Use Hugging Face backend for AI and image analysis
 AI_BACKEND_URL = os.environ.get("AI_BACKEND_URL", "https://fuhaddesmond-eeshamart-ai.hf.space/api/chat")
 
-logger.info("🤖 EeshaMart Telegram Bot Starting...")
+logger.info("🤖 EeshaMart Telegram Bot with AI Chat Starting...")
 
 # Storage
 linked_accounts: Dict[int, dict] = {}
@@ -59,14 +58,12 @@ async def send_telegram(chat_id: int, text: str):
 async def download_telegram_photo(file_id: str) -> Optional[bytes]:
     """Download photo from Telegram"""
     try:
-        # Get file path
         file_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile?file_id={file_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(file_url)
             if response.status_code == 200:
                 file_path = response.json().get("result", {}).get("file_path")
                 if file_path:
-                    # Download the actual file
                     photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
                     photo_response = await client.get(photo_url)
                     if photo_response.status_code == 200:
@@ -75,58 +72,36 @@ async def download_telegram_photo(file_id: str) -> Optional[bytes]:
         logger.error(f"❌ Photo download error: {e}")
     return None
 
-async def analyze_image_via_backend(image_bytes: bytes) -> str:
-    """Analyze image using Hugging Face backend (no local model needed!)"""
-    try:
-        # Convert to base64
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
-        
-        # Send to Hugging Face backend for analysis
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                AI_BACKEND_URL,
-                json={
-                    "message": "What do you see in this image?",
-                    "context": {"image": f"data:image/jpeg;base64,{base64_image}"}
-                }
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                # The backend returns image_description in the response
-                image_desc = data.get("image_description")
-                if image_desc and image_desc != "an image":
-                    logger.info(f"🖼️ Image analysis: {image_desc}")
-                    return image_desc
-                
-                # Fallback: extract from response text
-                response_text = data.get("response", "")
-                if response_text:
-                    return response_text
-        
-        return "an image"
-    except Exception as e:
-        logger.error(f"Image analysis error: {e}")
-        return "an image"
-
-async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
-    """Verify user credentials with Supabase Auth"""
-    url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
-    headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(url, headers=headers, json={"email": email, "password": password})
-            if response.status_code == 200:
-                data = response.json()
-                return {"user_id": data.get("user", {}).get("id"), "email": data.get("user", {}).get("email"), "access_token": data.get("access_token")}
-    except Exception as e:
-        logger.error(f"Auth error: {e}")
-    return None
-
-async def search_products(query: str, limit: int = 5) -> List[dict]:
-    """Search products directly from Supabase"""
-    search_terms = query.lower().split()
+async def chat_with_ai(message: str, chat_id: int, image_base64: str = None) -> dict:
+    """Send message to AI backend and get response with actions"""
+    session = user_sessions.get(chat_id, {})
     
+    payload = {
+        "message": message,
+        "context": {
+            "cartItems": session.get("cart_items", []),
+            "lastShownProducts": session.get("last_products", []),
+            "conversationHistory": session.get("history", []),
+            "isLoggedIn": chat_id in linked_accounts
+        }
+    }
+    
+    if image_base64:
+        payload["context"]["image"] = image_base64
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(AI_BACKEND_URL, json=payload)
+            if response.status_code == 200:
+                return response.json()
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+    
+    return {"success": False, "response": "Connection issue. Try again?"}
+
+async def search_products_db(query: str, limit: int = 5) -> List[dict]:
+    """Search products from Supabase"""
+    search_terms = query.lower().split()
     or_conditions = []
     for term in search_terms:
         or_conditions.append(f"name.ilike.%25{term}%25")
@@ -157,7 +132,7 @@ async def get_cart(user_id: str) -> List[dict]:
         logger.error(f"Cart error: {e}")
         return []
 
-async def add_to_cart(user_id: str, product_id: int, quantity: int = 1) -> bool:
+async def add_to_cart_db(user_id: str, product_id: int, quantity: int = 1) -> bool:
     """Add product to cart"""
     url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&product_id=eq.{product_id}&select=*"
     headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json", "Prefer": "return=minimal"}
@@ -174,14 +149,44 @@ async def add_to_cart(user_id: str, product_id: int, quantity: int = 1) -> bool:
         logger.error(f"Add to cart error: {e}")
         return False
 
-async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_description: str = None) -> str:
-    """Process incoming message"""
-    logger.info(f"📩 From {chat_id}: {text}")
+async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
+    """Verify user credentials with Supabase Auth"""
+    url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
+    headers = {"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(url, headers=headers, json={"email": email, "password": password})
+            if response.status_code == 200:
+                data = response.json()
+                return {"user_id": data.get("user", {}).get("id"), "email": data.get("user", {}).get("email"), "access_token": data.get("access_token")}
+    except Exception as e:
+        logger.error(f"Auth error: {e}")
+    return None
+
+def format_products_message(products: List[dict]) -> str:
+    """Format products for Telegram message"""
+    if not products:
+        return "No products found."
+    
+    response = f"🔍 *Found {len(products)} products:*\n\n"
+    for i, p in enumerate(products, 1):
+        response += f"{i}. *{p['name']}*\n"
+        response += f"   💰 ₦{p['price']:,}\n"
+        if p.get('category'):
+            response += f"   📁 {p['category']}\n"
+        response += "\n"
+    response += "_Reply with a number to add to cart, or chat with me!_"
+    return response
+
+async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_base64: str = None) -> str:
+    """Process incoming message with AI"""
+    logger.info(f"📩 From {chat_id}: {text[:50] if text else 'image'}...")
+    
+    # Initialize session
+    if chat_id not in user_sessions:
+        user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
     
     text_lower = text.strip().lower() if text else ""
-    
-    if chat_id not in user_sessions:
-        user_sessions[chat_id] = {"last_products": []}
     
     # ========== AUTHENTICATION ==========
     
@@ -205,31 +210,33 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
             auth_result = await verify_supabase_auth(email, password)
             
             if auth_result:
-                linked_accounts[chat_id] = {"user_id": auth_result["user_id"], "email": email, "telegram_id": chat_id, "username": username, "history": []}
+                linked_accounts[chat_id] = {"user_id": auth_result["user_id"], "email": email, "telegram_id": chat_id, "username": username}
                 del auth_sessions[chat_id]
+                # Get cart items for context
+                cart = await get_cart(auth_result["user_id"])
+                user_sessions[chat_id]["cart_items"] = cart
                 return f"""✅ *Welcome!*
 
 🎉 Account linked successfully!
 
-🛒 *You can now:*
-• Search for products
+🤖 I'm Eesha, your AI shopping assistant! You can:
+• Chat naturally with me about anything
+• Search for products (just describe what you want)
+• Send photos to find similar products
 • Add items to cart
-• View your cart
-• Send photos to find similar products!
 
 _What would you like?_"""
             else:
                 del auth_sessions[chat_id]
                 return "❌ Login failed. Send /start to retry."
     
-    # ========== COMMANDS ==========
+    # ========== BASIC COMMANDS ==========
     
     if text_lower.startswith('/start'):
         if chat_id in linked_accounts:
             return """✅ *Welcome Back!*
 
-🛒 What would you like to shop for?
-📸 You can also send a photo to find similar products!"""
+🤖 I'm Eesha, your AI shopping assistant! Chat naturally with me or send a photo to find products."""
         auth_sessions[chat_id] = {"state": AUTH_STATE_EMAIL}
         return """👋 *Welcome to EeshaMart AI!*
 
@@ -244,7 +251,24 @@ _What would you like?_"""
     if text_lower in ['/logout', 'logout']:
         if chat_id in linked_accounts:
             del linked_accounts[chat_id]
+            if chat_id in user_sessions:
+                user_sessions[chat_id]["cart_items"] = []
         return "✅ Logged out. /start to login."
+    
+    if text_lower in ['/help', 'help']:
+        return """🆘 *Help*
+
+/start - Login
+/cart - View cart  
+/logout - Sign out
+
+🤖 *Just chat naturally!*
+• "Show me phones under 50000"
+• "I need something for gaming"
+• "What's the weather like?"
+• Send a photo to find similar products!"""
+    
+    # ========== CART COMMAND ==========
     
     if text_lower in ['/cart', 'cart', 'my cart']:
         if chat_id not in linked_accounts:
@@ -261,9 +285,11 @@ _What would you like?_"""
                 qty = item.get("quantity", 1)
                 total += price * qty
                 response += f"{i}. *{name}* x{qty} = ₦{price*qty:,}\n"
-            response += f"\n💰 *Total: ₦{total:,}*"
+            response += f"\n💰 *Total: ₦{total:,}*\n\n_checkout_ to complete your order!"
             return response
-        return "🛒 Cart is empty. Search for products!"
+        return "🛒 Cart is empty. Tell me what you're looking for!"
+    
+    # ========== CHECKOUT ==========
     
     if text_lower in ['checkout', '/checkout']:
         if chat_id not in linked_accounts:
@@ -272,77 +298,112 @@ _What would you like?_"""
 
 Visit eeshamart.com to complete payment!"""
     
-    if text_lower in ['/help', 'help']:
-        return """🆘 *Help*
-
-/start - Login
-/cart - View cart
-/checkout - Checkout
-/logout - Sign out
-
-📸 Send a photo to find similar products!
-Just type what you want to buy!"""
+    # ========== QUICK ADD TO CART ==========
     
-    # Check login
-    if chat_id not in linked_accounts:
-        return "🔐 Login first. Send /start"
-    
-    # ========== IMAGE SEARCH ==========
-    
-    if image_description:
-        # User sent an image - search for similar products
-        logger.info(f"🖼️ Searching for: {image_description}")
-        products = await search_products(image_description)
-        
-        if products:
-            user_sessions[chat_id]["last_products"] = products
-            response = f"📸 *I can see: {image_description}*\n\n🔍 *Found {len(products)} similar products:*\n\n"
-            for i, p in enumerate(products, 1):
-                response += f"{i}. *{p['name']}*\n"
-                response += f"   💰 ₦{p['price']:,}\n"
-                if p.get('category'):
-                    response += f"   📁 {p['category']}\n"
-                response += "\n"
-            response += "_Reply with a number to add to cart!_"
-            return response
-        else:
-            return f"📸 *I can see: {image_description}*\n\n❌ No similar products found. Try a different image or search with text."
-    
-    # ========== PRODUCT SEARCH ==========
-    
-    # Check if adding to cart by number
+    # Check if user is typing a number to add to cart
     if text_lower.isdigit() or text_lower.startswith('add '):
-        products = user_sessions[chat_id]["last_products"]
+        if chat_id not in linked_accounts:
+            return "🔐 Login first. Send /start"
         
-        # Parse "add 2" or just "2"
+        products = user_sessions[chat_id].get("last_products", [])
+        
         if text_lower.startswith('add '):
-            num = int(text_lower[4:].strip())
+            num_str = text_lower[4:].strip()
+            if num_str.isdigit():
+                num = int(num_str)
+            else:
+                num = 0
         else:
             num = int(text_lower)
         
         if 1 <= num <= len(products):
             product = products[num - 1]
-            await add_to_cart(linked_accounts[chat_id]["user_id"], product["id"])
-            return f"✅ Added *{product['name']}* to cart!"
-        else:
-            return f"❌ Invalid number. Choose 1-{len(products)}"
+            await add_to_cart_db(linked_accounts[chat_id]["user_id"], product["id"])
+            # Update session cart
+            cart = await get_cart(linked_accounts[chat_id]["user_id"])
+            user_sessions[chat_id]["cart_items"] = cart
+            return f"✅ Added *{product['name']}* to cart!\n\n_Anything else?_"
+        elif products:
+            return f"❌ Choose 1-{len(products)}"
     
-    # Search products
-    products = await search_products(text)
+    # ========== AI CHAT ==========
     
-    if products:
+    # Check login for shopping actions
+    if chat_id not in linked_accounts:
+        return "🔐 Login first to chat and shop! Send /start"
+    
+    # Send to AI backend for natural conversation
+    ai_response = await chat_with_ai(text, chat_id, image_base64)
+    
+    logger.info(f"AI Response: {ai_response}")
+    
+    # Store in conversation history
+    user_sessions[chat_id]["history"].append({"role": "user", "content": text})
+    user_sessions[chat_id]["history"].append({"role": "assistant", "content": ai_response.get("response", "")})
+    # Keep only last 10 messages
+    if len(user_sessions[chat_id]["history"]) > 10:
+        user_sessions[chat_id]["history"] = user_sessions[chat_id]["history"][-10:]
+    
+    response_text = ai_response.get("response", "I'm here to help!")
+    action = ai_response.get("action")
+    products = ai_response.get("products")
+    
+    # Handle AI actions
+    if action:
+        action_type = action.get("type") if isinstance(action, dict) else None
+        
+        if action_type == "add_to_cart":
+            # Add to cart
+            product_index = action.get("product_index", 1)
+            quantity = action.get("quantity", 1)
+            add_all = action.get("all", False)
+            
+            last_products = user_sessions[chat_id].get("last_products", [])
+            
+            if add_all and last_products:
+                for p in last_products:
+                    await add_to_cart_db(linked_accounts[chat_id]["user_id"], p["id"])
+                cart = await get_cart(linked_accounts[chat_id]["user_id"])
+                user_sessions[chat_id]["cart_items"] = cart
+                response_text = f"✅ Added all {len(last_products)} products to cart!"
+            elif 1 <= product_index <= len(last_products):
+                product = last_products[product_index - 1]
+                await add_to_cart_db(linked_accounts[chat_id]["user_id"], product["id"], quantity)
+                cart = await get_cart(linked_accounts[chat_id]["user_id"])
+                user_sessions[chat_id]["cart_items"] = cart
+                response_text = f"✅ Added *{product['name']}* to cart!"
+        
+        elif action_type == "view_cart":
+            cart = await get_cart(linked_accounts[chat_id]["user_id"])
+            if cart:
+                cart_msg = "🛒 *Your Cart:*\n\n"
+                total = 0
+                for i, item in enumerate(cart, 1):
+                    p = item.get("products", {})
+                    name = p.get("name", "Item")
+                    price = p.get("price", 0)
+                    qty = item.get("quantity", 1)
+                    total += price * qty
+                    cart_msg += f"{i}. *{name}* x{qty} = ₦{price*qty:,}\n"
+                cart_msg += f"\n💰 *Total: ₦{total:,}*"
+                response_text = cart_msg
+            else:
+                response_text = "🛒 Your cart is empty. Tell me what you're looking for!"
+        
+        elif action_type == "checkout":
+            response_text = """💳 *Ready to checkout!*
+
+Visit eeshamart.com to complete your order."""
+        
+        elif action_type == "login_required":
+            response_text = "🔐 Please login first. Send /start"
+    
+    # Handle product search results
+    if products and len(products) > 0:
         user_sessions[chat_id]["last_products"] = products
-        response = f"🔍 *Found {len(products)} products:*\n\n"
-        for i, p in enumerate(products, 1):
-            response += f"{i}. *{p['name']}*\n"
-            response += f"   💰 ₦{p['price']:,}\n"
-            if p.get('category'):
-                response += f"   📁 {p['category']}\n"
-            response += "\n"
-        response += "_Reply with a number to add to cart!_"
-        return response
-    else:
-        return f"❌ No products found for '{text}'. Try different keywords."
+        response_text += "\n\n" + format_products_message(products)
+    
+    return response_text
 
 # ==================== API ENDPOINTS ====================
 
@@ -350,9 +411,9 @@ Just type what you want to buy!"""
 async def root():
     return {
         "status": "online", 
-        "service": "EeshaMart Telegram Bot with Vision", 
+        "service": "EeshaMart Telegram Bot with AI Chat + Vision", 
         "bot": "https://t.me/eeshamart_bot",
-        "vision": "via Hugging Face backend"
+        "ai": "Qwen2.5-3B via Hugging Face"
     }
 
 @app.get("/health")
@@ -373,28 +434,24 @@ async def telegram_webhook(request: Request):
             text = message.get("text", "")
             
             # Handle photo messages
-            image_description = None
+            image_base64 = None
             if "photo" in message and message["photo"]:
-                # Get the largest photo (last in array)
                 photo = message["photo"][-1]
                 file_id = photo.get("file_id")
                 
-                # Send typing indicator
                 await send_telegram(chat_id, "📸 _Analyzing image..._")
                 
-                # Download and analyze image via Hugging Face backend
                 image_bytes = await download_telegram_photo(file_id)
                 if image_bytes:
-                    image_description = await analyze_image_via_backend(image_bytes)
-                    logger.info(f"🖼️ Image description: {image_description}")
+                    image_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
             
-            if text or image_description:
+            if text or image_base64:
                 reply = await process_message(
                     chat_id, 
                     user_id, 
-                    text if text else "", 
+                    text if text else "What's in this image?", 
                     username, 
-                    image_description
+                    image_base64
                 )
                 await send_telegram(chat_id, reply)
         

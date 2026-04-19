@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Dict, List, Optional
 import re
+import asyncio
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import base64
@@ -89,6 +90,28 @@ async def send_telegram(chat_id: int, text: str):
     except Exception as e:
         logger.error(f"❌ Send error: {e}")
         return {"ok": False, "error": str(e)}
+
+
+async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool:
+    """Send product photo with caption via Telegram API"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    payload = {
+        "chat_id": chat_id,
+        "photo": image_url,
+        "caption": caption,
+        "parse_mode": "Markdown"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"📸 Product photo sent successfully")
+                return True
+            else:
+                logger.error(f"Photo send error: {response.status_code} - {response.text}")
+    except Exception as e:
+        logger.error(f"❌ Photo send error: {e}")
+    return False
 
 
 async def download_telegram_photo(file_id: str) -> Optional[bytes]:
@@ -234,8 +257,23 @@ async def chat_with_ai(message: str, chat_id: int, image_base64: str = None) -> 
 
 # ==================== MESSAGE PROCESSING ====================
 
+def format_product_caption(product: dict, index: int) -> str:
+    """Format a single product for photo caption"""
+    text = f"*{index}. {product.get('name', 'Product')}*\n\n"
+    text += f"💰 Price: ₦{product.get('price', 0):,}\n"
+    if product.get('category'):
+        text += f"📁 Category: {product['category']}\n"
+    if product.get('description'):
+        desc = product['description'][:100]
+        if len(product['description']) > 100:
+            desc += "..."
+        text += f"📝 {desc}\n"
+    text += f"\n_Reply '{index}' to add to cart!_"
+    return text
+
+
 def format_products(products: List[dict]) -> str:
-    """Format products for display"""
+    """Format products for display (used when no images available)"""
     if not products:
         return ""
     
@@ -248,6 +286,47 @@ def format_products(products: List[dict]) -> str:
         text += "\n"
     text += "_Reply with a number to add to cart!_"
     return text
+
+
+async def send_products_with_images(chat_id: int, products: List[dict], intro_text: str):
+    """Send products with their images to Telegram"""
+    if not products:
+        await send_telegram(chat_id, intro_text + "\n\n❌ No products found.")
+        return
+    
+    # Send intro message first
+    if intro_text:
+        await send_telegram(chat_id, intro_text)
+    
+    # Send each product with its image (limit to first 5 to avoid spam)
+    products_to_show = products[:5]
+    
+    for i, product in enumerate(products_to_show, 1):
+        image_url = product.get('image_url') or product.get('image')
+        
+        if image_url:
+            # Send photo with caption
+            caption = format_product_caption(product, i)
+            success = await send_product_photo(chat_id, image_url, caption)
+            
+            if not success:
+                # Fallback to text if image fails
+                await send_telegram(chat_id, caption)
+        else:
+            # No image, send text only
+            caption = format_product_caption(product, i)
+            await send_telegram(chat_id, caption)
+        
+        # Small delay between messages to avoid rate limiting
+        await asyncio.sleep(0.3)
+    
+    # Send summary if there are more products
+    if len(products) > 5:
+        remaining = len(products) - 5
+        summary = f"\n_...and {remaining} more products found._\n\n_Reply with a number (1-{len(products)}) to add to cart!_"
+        await send_telegram(chat_id, summary)
+    else:
+        await send_telegram(chat_id, f"\n_Reply with a number (1-{len(products_to_show)}) to add to cart!_"),
 
 
 async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_base64: str = None) -> str:
@@ -482,13 +561,11 @@ Visit eeshamart.com to complete your order."""
     
     # ========== HANDLE PRODUCT SEARCH RESULTS ==========
     
-    if products and len(products) > 0:
-        user_sessions[chat_id]["last_products"] = products
-        response_text += format_products(products)
-    elif products is not None and len(products) == 0:
-        response_text += "\n\n❌ No products found. Try different keywords?"
-    
-    return response_text
+    # Return dict with response and products for image handling
+    return {
+        "response": response_text,
+        "products": products
+    }
 
 
 # ==================== API ENDPOINTS ====================
@@ -503,6 +580,7 @@ async def root():
             "Natural AI Chat (Qwen2.5-3B)",
             "Smart Intent Understanding",
             "Image Analysis (BLIP)",
+            "Product Images Display",
             "Conversation Memory",
             "Authenticated Cart Operations"
         ]
@@ -546,7 +624,7 @@ async def telegram_webhook(request: Request):
             if text or image_base64:
                 await send_typing_action(chat_id)
                 
-                reply = await process_message(
+                result = await process_message(
                     chat_id,
                     user_id,
                     text if text else "What do you see in this image?",
@@ -554,10 +632,32 @@ async def telegram_webhook(request: Request):
                     image_base64
                 )
                 
+                # Handle both old string return and new dict return
+                if isinstance(result, dict):
+                    response_text = result.get("response", "")
+                    products = result.get("products")
+                else:
+                    response_text = result
+                    products = None
+                
+                # Store products in session if found
+                if products and len(products) > 0:
+                    if chat_id not in user_sessions:
+                        user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
+                    user_sessions[chat_id]["last_products"] = products
+                
                 if thinking_msg_id:
                     await delete_message(chat_id, thinking_msg_id)
                 
-                await send_telegram(chat_id, reply)
+                # Send response with product images if products found
+                if products and len(products) > 0:
+                    await send_products_with_images(chat_id, products, response_text)
+                elif products is not None and len(products) == 0:
+                    # No products found
+                    await send_telegram(chat_id, response_text + "\n\n❌ No products found. Try different keywords?")
+                else:
+                    # No product search, just regular message
+                    await send_telegram(chat_id, response_text)
         
         return {"status": "ok"}
     except Exception as e:

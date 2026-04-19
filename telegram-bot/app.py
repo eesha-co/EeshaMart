@@ -1,6 +1,7 @@
 """
 EeshaMart Telegram Bot - Production Ready with Vision
 Email/Password Authentication + Direct Product Search + IMAGE UNDERSTANDING
+Uses Hugging Face backend for image analysis (no local model = low memory!)
 
 Bot: https://t.me/eeshamart_bot
 """
@@ -9,7 +10,6 @@ import httpx
 import os
 import json
 import logging
-import base64
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import random
@@ -17,12 +17,7 @@ import string
 import re
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from io import BytesIO
-
-# Vision model imports
-from transformers import BlipProcessor, BlipForConditionalGeneration
-import torch
-from PIL import Image
+import base64
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,22 +29,10 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8142562507:AAG-_UExIh18e6mz-0URKmv67-CQOk_cuA4")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://tcwdbokruvlizkxcpkzj.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjd2Rib2tydXZsaXpreGNwa3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDkyNjQsImV4cCI6MjA3NTY4NTI2NH0.p871FXUakrWQ7PhhZr8Ly2BxLOhwQjRJiDGd59wAhyg")
+# Use Hugging Face backend for AI and image analysis
 AI_BACKEND_URL = os.environ.get("AI_BACKEND_URL", "https://fuhaddesmond-eeshamart-ai.hf.space/api/chat")
 
 logger.info("🤖 EeshaMart Telegram Bot Starting...")
-
-# Vision Model - Same as Website
-vision_processor = None
-vision_model = None
-
-@app.on_event("startup")
-async def load_vision_model():
-    global vision_processor, vision_model
-    logger.info("Loading BLIP vision model...")
-    vision_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    vision_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    vision_model.eval()
-    logger.info("✅ Vision model loaded - Bot can see images!")
 
 # Storage
 linked_accounts: Dict[int, dict] = {}
@@ -92,26 +75,36 @@ async def download_telegram_photo(file_id: str) -> Optional[bytes]:
         logger.error(f"❌ Photo download error: {e}")
     return None
 
-def analyze_image(image_bytes: bytes) -> str:
-    """Analyze image using BLIP - Same model as website"""
-    global vision_processor, vision_model
-    
-    if vision_processor is None or vision_model is None:
-        return "an image"
-    
+async def analyze_image_via_backend(image_bytes: bytes) -> str:
+    """Analyze image using Hugging Face backend (no local model needed!)"""
     try:
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        # Convert to base64
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
         
-        # Generate caption using BLIP
-        inputs = vision_processor(image, return_tensors="pt")
+        # Send to Hugging Face backend for analysis
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                AI_BACKEND_URL,
+                json={
+                    "message": "What do you see in this image?",
+                    "context": {"image": f"data:image/jpeg;base64,{base64_image}"}
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                # The backend returns image_description in the response
+                image_desc = data.get("image_description")
+                if image_desc and image_desc != "an image":
+                    logger.info(f"🖼️ Image analysis: {image_desc}")
+                    return image_desc
+                
+                # Fallback: extract from response text
+                response_text = data.get("response", "")
+                if response_text:
+                    return response_text
         
-        with torch.no_grad():
-            output = vision_model.generate(**inputs, max_length=100)
-        
-        caption = vision_processor.decode(output[0], skip_special_tokens=True)
-        logger.info(f"🖼️ Image analysis: {caption}")
-        
-        return caption
+        return "an image"
     except Exception as e:
         logger.error(f"Image analysis error: {e}")
         return "an image"
@@ -359,18 +352,18 @@ async def root():
         "status": "online", 
         "service": "EeshaMart Telegram Bot with Vision", 
         "bot": "https://t.me/eeshamart_bot",
-        "vision": vision_model is not None
+        "vision": "via Hugging Face backend"
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "vision_loaded": vision_model is not None}
+    return {"status": "healthy"}
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
     try:
         body = await request.json()
-        logger.info(f"📬 Webhook: {json.dumps(body)[:500]}...")
+        logger.info(f"📬 Webhook received")
         
         if "message" in body:
             message = body["message"]
@@ -389,10 +382,10 @@ async def telegram_webhook(request: Request):
                 # Send typing indicator
                 await send_telegram(chat_id, "📸 _Analyzing image..._")
                 
-                # Download and analyze image
+                # Download and analyze image via Hugging Face backend
                 image_bytes = await download_telegram_photo(file_id)
                 if image_bytes:
-                    image_description = analyze_image(image_bytes)
+                    image_description = await analyze_image_via_backend(image_bytes)
                     logger.info(f"🖼️ Image description: {image_description}")
             
             if text or image_description:

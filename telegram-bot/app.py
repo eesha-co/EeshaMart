@@ -101,17 +101,20 @@ async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool
         "caption": caption,
         "parse_mode": "Markdown"
     }
+    logger.info(f"📸 Sending photo: {image_url[:50]}...")
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(url, json=payload)
+            logger.info(f"📸 Photo response: {response.status_code}")
             if response.status_code == 200:
-                logger.info(f"📸 Product photo sent successfully")
+                logger.info(f"✅ Product photo sent successfully")
                 return True
             else:
                 logger.error(f"Photo send error: {response.status_code} - {response.text}")
+                return False
     except Exception as e:
         logger.error(f"❌ Photo send error: {e}")
-    return False
+        return False
 
 
 async def download_telegram_photo(file_id: str) -> Optional[bytes]:
@@ -294,6 +297,8 @@ async def send_products_with_images(chat_id: int, products: List[dict], intro_te
         await send_telegram(chat_id, intro_text + "\n\n❌ No products found.")
         return
     
+    logger.info(f"📦 Sending {len(products)} products with images")
+    
     # Send intro message first
     if intro_text:
         await send_telegram(chat_id, intro_text)
@@ -302,23 +307,28 @@ async def send_products_with_images(chat_id: int, products: List[dict], intro_te
     products_to_show = products[:5]
     
     for i, product in enumerate(products_to_show, 1):
-        image_url = product.get('image_url') or product.get('image')
+        # Get image URL - check multiple possible field names
+        image_url = product.get('image_url') or product.get('image') or product.get('imageUrl') or product.get('image_link')
+        
+        logger.info(f"📦 Product {i}: {product.get('name')} - Image: {image_url[:50] if image_url else 'None'}")
+        
+        caption = format_product_caption(product, i)
         
         if image_url:
             # Send photo with caption
-            caption = format_product_caption(product, i)
             success = await send_product_photo(chat_id, image_url, caption)
             
             if not success:
                 # Fallback to text if image fails
+                logger.warning(f"⚠️ Image failed for product {i}, sending text only")
                 await send_telegram(chat_id, caption)
         else:
             # No image, send text only
-            caption = format_product_caption(product, i)
+            logger.info(f"📝 No image for product {i}, sending text only")
             await send_telegram(chat_id, caption)
         
         # Small delay between messages to avoid rate limiting
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.5)
     
     # Send summary if there are more products
     if len(products) > 5:

@@ -1,6 +1,6 @@
 """
-EeshaMart Telegram Bot - Production Ready
-Email/Password Authentication + Direct Product Search
+EeshaMart Telegram Bot - Production Ready with Vision
+Email/Password Authentication + Direct Product Search + IMAGE UNDERSTANDING
 
 Bot: https://t.me/eeshamart_bot
 """
@@ -9,6 +9,7 @@ import httpx
 import os
 import json
 import logging
+import base64
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import random
@@ -16,11 +17,17 @@ import string
 import re
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from io import BytesIO
+
+# Vision model imports
+from transformers import BlipProcessor, BlipForConditionalGeneration
+import torch
+from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EeshaMart Telegram Bot")
+app = FastAPI(title="EeshaMart Telegram Bot with Vision")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # Configuration
@@ -30,6 +37,19 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 AI_BACKEND_URL = os.environ.get("AI_BACKEND_URL", "https://fuhaddesmond-eeshamart-ai.hf.space/api/chat")
 
 logger.info("🤖 EeshaMart Telegram Bot Starting...")
+
+# Vision Model - Same as Website
+vision_processor = None
+vision_model = None
+
+@app.on_event("startup")
+async def load_vision_model():
+    global vision_processor, vision_model
+    logger.info("Loading BLIP vision model...")
+    vision_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    vision_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+    vision_model.eval()
+    logger.info("✅ Vision model loaded - Bot can see images!")
 
 # Storage
 linked_accounts: Dict[int, dict] = {}
@@ -53,6 +73,49 @@ async def send_telegram(chat_id: int, text: str):
         logger.error(f"❌ Send error: {e}")
         return {"ok": False, "error": str(e)}
 
+async def download_telegram_photo(file_id: str) -> Optional[bytes]:
+    """Download photo from Telegram"""
+    try:
+        # Get file path
+        file_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile?file_id={file_id}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(file_url)
+            if response.status_code == 200:
+                file_path = response.json().get("result", {}).get("file_path")
+                if file_path:
+                    # Download the actual file
+                    photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+                    photo_response = await client.get(photo_url)
+                    if photo_response.status_code == 200:
+                        return photo_response.content
+    except Exception as e:
+        logger.error(f"❌ Photo download error: {e}")
+    return None
+
+def analyze_image(image_bytes: bytes) -> str:
+    """Analyze image using BLIP - Same model as website"""
+    global vision_processor, vision_model
+    
+    if vision_processor is None or vision_model is None:
+        return "an image"
+    
+    try:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        
+        # Generate caption using BLIP
+        inputs = vision_processor(image, return_tensors="pt")
+        
+        with torch.no_grad():
+            output = vision_model.generate(**inputs, max_length=100)
+        
+        caption = vision_processor.decode(output[0], skip_special_tokens=True)
+        logger.info(f"🖼️ Image analysis: {caption}")
+        
+        return caption
+    except Exception as e:
+        logger.error(f"Image analysis error: {e}")
+        return "an image"
+
 async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
     """Verify user credentials with Supabase Auth"""
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
@@ -69,10 +132,8 @@ async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
 
 async def search_products(query: str, limit: int = 5) -> List[dict]:
     """Search products directly from Supabase"""
-    # Clean query and create search pattern
     search_terms = query.lower().split()
     
-    # Build OR query for name and description
     or_conditions = []
     for term in search_terms:
         or_conditions.append(f"name.ilike.%25{term}%25")
@@ -120,11 +181,11 @@ async def add_to_cart(user_id: str, product_id: int, quantity: int = 1) -> bool:
         logger.error(f"Add to cart error: {e}")
         return False
 
-async def process_message(chat_id: int, user_id: int, text: str, username: str = None) -> str:
+async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_description: str = None) -> str:
     """Process incoming message"""
     logger.info(f"📩 From {chat_id}: {text}")
     
-    text_lower = text.strip().lower()
+    text_lower = text.strip().lower() if text else ""
     
     if chat_id not in user_sessions:
         user_sessions[chat_id] = {"last_products": []}
@@ -161,6 +222,7 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
 • Search for products
 • Add items to cart
 • View your cart
+• Send photos to find similar products!
 
 _What would you like?_"""
             else:
@@ -173,7 +235,8 @@ _What would you like?_"""
         if chat_id in linked_accounts:
             return """✅ *Welcome Back!*
 
-🛒 What would you like to shop for?"""
+🛒 What would you like to shop for?
+📸 You can also send a photo to find similar products!"""
         auth_sessions[chat_id] = {"state": AUTH_STATE_EMAIL}
         return """👋 *Welcome to EeshaMart AI!*
 
@@ -188,8 +251,7 @@ _What would you like?_"""
     if text_lower in ['/logout', 'logout']:
         if chat_id in linked_accounts:
             del linked_accounts[chat_id]
-            return "✅ Logged out. /start to login."
-        return "Not logged in."
+        return "✅ Logged out. /start to login."
     
     if text_lower in ['/cart', 'cart', 'my cart']:
         if chat_id not in linked_accounts:
@@ -225,11 +287,33 @@ Visit eeshamart.com to complete payment!"""
 /checkout - Checkout
 /logout - Sign out
 
+📸 Send a photo to find similar products!
 Just type what you want to buy!"""
     
     # Check login
     if chat_id not in linked_accounts:
         return "🔐 Login first. Send /start"
+    
+    # ========== IMAGE SEARCH ==========
+    
+    if image_description:
+        # User sent an image - search for similar products
+        logger.info(f"🖼️ Searching for: {image_description}")
+        products = await search_products(image_description)
+        
+        if products:
+            user_sessions[chat_id]["last_products"] = products
+            response = f"📸 *I can see: {image_description}*\n\n🔍 *Found {len(products)} similar products:*\n\n"
+            for i, p in enumerate(products, 1):
+                response += f"{i}. *{p['name']}*\n"
+                response += f"   💰 ₦{p['price']:,}\n"
+                if p.get('category'):
+                    response += f"   📁 {p['category']}\n"
+                response += "\n"
+            response += "_Reply with a number to add to cart!_"
+            return response
+        else:
+            return f"📸 *I can see: {image_description}*\n\n❌ No similar products found. Try a different image or search with text."
     
     # ========== PRODUCT SEARCH ==========
     
@@ -271,17 +355,22 @@ Just type what you want to buy!"""
 
 @app.get("/")
 async def root():
-    return {"status": "online", "service": "EeshaMart Telegram Bot", "bot": "https://t.me/eeshamart_bot"}
+    return {
+        "status": "online", 
+        "service": "EeshaMart Telegram Bot with Vision", 
+        "bot": "https://t.me/eeshamart_bot",
+        "vision": vision_model is not None
+    }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "vision_loaded": vision_model is not None}
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
     try:
         body = await request.json()
-        logger.info(f"📬 Webhook: {json.dumps(body)}")
+        logger.info(f"📬 Webhook: {json.dumps(body)[:500]}...")
         
         if "message" in body:
             message = body["message"]
@@ -290,13 +379,37 @@ async def telegram_webhook(request: Request):
             username = message.get("from", {}).get("username", "")
             text = message.get("text", "")
             
-            if text:
-                reply = await process_message(chat_id, user_id, text, username)
+            # Handle photo messages
+            image_description = None
+            if "photo" in message and message["photo"]:
+                # Get the largest photo (last in array)
+                photo = message["photo"][-1]
+                file_id = photo.get("file_id")
+                
+                # Send typing indicator
+                await send_telegram(chat_id, "📸 _Analyzing image..._")
+                
+                # Download and analyze image
+                image_bytes = await download_telegram_photo(file_id)
+                if image_bytes:
+                    image_description = analyze_image(image_bytes)
+                    logger.info(f"🖼️ Image description: {image_description}")
+            
+            if text or image_description:
+                reply = await process_message(
+                    chat_id, 
+                    user_id, 
+                    text if text else "", 
+                    username, 
+                    image_description
+                )
                 await send_telegram(chat_id, reply)
         
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 @app.get("/setwebhook")

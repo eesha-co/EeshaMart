@@ -52,6 +52,31 @@ async def send_typing_action(chat_id: int):
         logger.error(f"Typing action error: {e}")
 
 
+async def send_thinking_message(chat_id: int) -> Optional[int]:
+    """Send a 'thinking...' message visible in chat, returns message_id for deletion"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": "🤔 _Thinking..._", "parse_mode": "Markdown"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                return response.json().get("result", {}).get("message_id")
+    except Exception as e:
+        logger.error(f"Thinking message error: {e}")
+    return None
+
+
+async def delete_message(chat_id: int, message_id: int):
+    """Delete a message from chat"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteMessage"
+    payload = {"chat_id": chat_id, "message_id": message_id}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(url, json=payload)
+    except Exception as e:
+        logger.error(f"Delete message error: {e}")
+
+
 async def send_telegram(chat_id: int, text: str):
     """Send message via Telegram API"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -482,8 +507,9 @@ async def telegram_webhook(request: Request):
             username = message.get("from", {}).get("username", "")
             text = message.get("text", "")
             
-            # Show typing indicator immediately so user knows bot is working
+            # Show typing indicator AND thinking message in chat
             await send_typing_action(chat_id)
+            thinking_msg_id = await send_thinking_message(chat_id)
             
             # Handle photo messages
             image_base64 = None
@@ -509,6 +535,11 @@ async def telegram_webhook(request: Request):
                     username,
                     image_base64
                 )
+                
+                # Delete the "Thinking..." message before sending reply
+                if thinking_msg_id:
+                    await delete_message(chat_id, thinking_msg_id)
+                
                 await send_telegram(chat_id, reply)
         
         return {"status": "ok"}

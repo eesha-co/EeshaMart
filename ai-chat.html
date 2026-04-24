@@ -225,6 +225,10 @@
     <div class="fixed bottom-[70px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2.5 z-40" style="padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));">
         <div class="max-w-3xl mx-auto">
             <div class="chat-input flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2 border-2 border-transparent transition-all">
+                <input type="file" id="ai-file-input" accept="image/*" hidden>
+                <button id="ai-upload-btn" onclick="document.getElementById('ai-file-input').click()" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-full transition-all flex-shrink-0" title="Upload image">
+                    <i class="fas fa-plus text-lg"></i>
+                </button>
                 <input type="text" id="chatInput" placeholder="Ask me anything about products..." 
                        class="flex-1 bg-transparent outline-none text-sm" 
                        onkeypress="if(event.key==='Enter') sendMessage()">

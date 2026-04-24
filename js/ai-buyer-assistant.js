@@ -66,6 +66,12 @@
             // Chips already have onclick="sendSuggestion('...')" in HTML
         });
 
+        // Wire image upload button
+        const fileInput = document.getElementById('ai-file-input');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
         // Make sendSuggestion available globally
         window.sendSuggestion = function(text) {
             document.getElementById('chatInput').value = text;
@@ -742,11 +748,18 @@ Just talk to me naturally!<br>
                 }
 
                 let actionResult = null;
+                let actionProducts = null;
                 if (data.action) {
                     actionResult = await executeAction(data.action, data);
+                    // If the action returned products (e.g. view_cart), include them for rendering
+                    if (actionResult?.products?.length > 0) {
+                        actionProducts = actionResult.products;
+                    }
                 }
 
-                addMessage('assistant', data.response, { products: data.products, actionResult });
+                // Merge products from API response and action results
+                const allProducts = data.products?.length > 0 ? data.products : actionProducts;
+                addMessage('assistant', data.response, { products: allProducts, actionResult });
             } else {
                 addMessage('assistant', data.response || 'Sorry, an error occurred.');
             }
@@ -834,17 +847,28 @@ Just talk to me naturally!<br>
             
             let cartDetails = 'Your Cart:\n';
             let total = 0;
-            items.forEach((item, i) => {
+            // Build products array with images for rendering
+            const cartProducts = items.map((item, i) => {
                 const name = item.products?.name || 'Unknown';
                 const price = item.products?.price || 0;
                 const qty = item.quantity || 1;
                 const subtotal = price * qty;
                 total += subtotal;
                 cartDetails += `${i+1}. ${name} x${qty} - ₦${subtotal.toLocaleString()}\n`;
+                return {
+                    id: item.product_id || item.products?.id,
+                    name: name,
+                    price: price,
+                    image_url: item.products?.image_url || null,
+                    category: item.products?.category || ''
+                };
             });
             cartDetails += `\nTotal: ₦${total.toLocaleString()}`;
             
-            return { success: true, message: cartDetails };
+            // Store cart products so they render with images
+            context.lastShownProducts = cartProducts;
+
+            return { success: true, message: cartDetails, products: cartProducts };
         }
 
         if (type === 'checkout') {

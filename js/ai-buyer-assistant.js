@@ -546,7 +546,7 @@ Just talk to me naturally!<br>
                 if (!preview) {
                     preview = document.createElement('div');
                     preview.id = 'ai-image-preview';
-                    preview.className = 'fixed bottom-[110px] left-4 right-4 bg-white border border-gray-200 rounded-xl p-2 shadow-lg z-40';
+                    preview.className = 'fixed bottom-[140px] left-4 right-4 bg-white border border-gray-200 rounded-xl p-2 shadow-lg z-40';
                     preview.innerHTML = `
                         <div class="flex items-center gap-2">
                             <img id="ai-preview-img" src="" alt="Preview" class="w-16 h-16 rounded-lg object-cover">

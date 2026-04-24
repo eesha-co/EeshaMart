@@ -72,6 +72,12 @@
             fileInput.addEventListener('change', handleFileSelect);
         }
 
+        // Wire image remove button
+        const removeBtn = document.getElementById('ai-remove-image');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', removeSelectedImage);
+        }
+
         // Make sendSuggestion available globally
         window.sendSuggestion = function(text) {
             document.getElementById('chatInput').value = text;
@@ -541,23 +547,11 @@ Just talk to me naturally!<br>
         reader.onload = ev => {
             selectedImage = ev.target.result;
             if (isFullPage) {
-                // Show image preview in chat input area
-                let preview = document.getElementById('ai-image-preview');
-                if (!preview) {
-                    preview = document.createElement('div');
-                    preview.id = 'ai-image-preview';
-                    preview.className = 'fixed bottom-[140px] left-4 right-4 bg-white border border-gray-200 rounded-xl p-2 shadow-lg z-40';
-                    preview.innerHTML = `
-                        <div class="flex items-center gap-2">
-                            <img id="ai-preview-img" src="" alt="Preview" class="w-16 h-16 rounded-lg object-cover">
-                            <span class="text-xs text-gray-500 flex-1">Image attached</span>
-                            <button id="ai-remove-image" class="w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-xs hover:bg-red-200"><i class="fas fa-times"></i></button>
-                        </div>`;
-                    document.body.appendChild(preview);
-                    document.getElementById('ai-remove-image').addEventListener('click', removeSelectedImage);
+                const preview = document.getElementById('ai-image-preview');
+                if (preview) {
+                    document.getElementById('ai-preview-img').src = selectedImage;
+                    preview.classList.remove('hidden');
                 }
-                document.getElementById('ai-preview-img').src = selectedImage;
-                preview.style.display = 'block';
             } else {
                 document.getElementById('ai-preview-img').src = selectedImage;
                 document.getElementById('ai-image-preview').classList.remove('ai-hidden');
@@ -571,7 +565,7 @@ Just talk to me naturally!<br>
         selectedImage = null;
         if (isFullPage) {
             const preview = document.getElementById('ai-image-preview');
-            if (preview) preview.style.display = 'none';
+            if (preview) preview.classList.add('hidden');
         } else {
             document.getElementById('ai-image-preview').classList.add('ai-hidden');
         }

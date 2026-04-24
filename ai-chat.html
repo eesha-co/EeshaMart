@@ -222,8 +222,18 @@
     </div>
 
     <!-- Chat Input Bar -->
-    <div class="fixed bottom-[70px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2.5 z-40" style="padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));">
+    <div id="chatInputBar" class="fixed bottom-[70px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2.5 z-40" style="padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));">
         <div class="max-w-3xl mx-auto">
+            <!-- Image Preview (inline, above input) -->
+            <div id="ai-image-preview" class="hidden mb-2 p-2 bg-gray-50 rounded-xl border border-gray-200">
+                <div class="flex items-end gap-2.5">
+                    <div class="relative flex-shrink-0">
+                        <img id="ai-preview-img" src="" alt="Preview" class="w-20 h-20 rounded-xl object-cover border-2 border-gray-200">
+                        <button id="ai-remove-image" class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-md hover:bg-red-600 transition-colors"><i class="fas fa-times"></i></button>
+                    </div>
+                    <p class="text-xs text-gray-500 pb-1">Image attached — send a message to ask about it</p>
+                </div>
+            </div>
             <div class="chat-input flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2 border-2 border-transparent transition-all">
                 <input type="file" id="ai-file-input" accept="image/*" hidden>
                 <button id="ai-upload-btn" onclick="document.getElementById('ai-file-input').click()" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-full transition-all flex-shrink-0" title="Upload image">

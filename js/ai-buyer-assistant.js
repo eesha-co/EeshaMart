@@ -547,9 +547,22 @@ Just talk to me naturally!<br>
         const file = e.target.files[0];
         console.log('[Eesha AI] File selected:', file?.name, file?.type, file?.size);
         if (!file?.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-            selectedImage = ev.target.result;
+
+        // Compress image to max 512px before sending (phone photos are too large for HF Space)
+        const img = new Image();
+        img.onload = function() {
+            const MAX = 512;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            selectedImage = canvas.toDataURL('image/jpeg', 0.7);
+            console.log('[Eesha AI] Image compressed. Original:', file.size, 'bytes. Base64 length:', selectedImage.length);
+
             if (isFullPage) {
                 const preview = document.getElementById('ai-image-preview');
                 if (preview) {
@@ -561,7 +574,25 @@ Just talk to me naturally!<br>
                 document.getElementById('ai-image-preview').classList.remove('ai-hidden');
             }
         };
-        reader.readAsDataURL(file);
+        img.onerror = function() {
+            // Fallback: use original file
+            const reader = new FileReader();
+            reader.onload = ev => {
+                selectedImage = ev.target.result;
+                if (isFullPage) {
+                    const preview = document.getElementById('ai-image-preview');
+                    if (preview) {
+                        document.getElementById('ai-preview-img').src = selectedImage;
+                        preview.classList.remove('hidden');
+                    }
+                } else {
+                    document.getElementById('ai-preview-img').src = selectedImage;
+                    document.getElementById('ai-image-preview').classList.remove('ai-hidden');
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+        img.src = URL.createObjectURL(file);
         e.target.value = '';
     }
 

@@ -337,11 +337,18 @@
                     }
                 };
 
+                // Use AbortController for timeout (60s for HF cold starts)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
+
                 const response = await fetch(AI_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
 
                 removeTypingIndicator();
 
@@ -380,7 +387,14 @@
             } catch (error) {
                 console.error('AI Chat Error:', error);
                 removeTypingIndicator();
-                appendMessage('ai', "I'm sorry, I'm having trouble connecting right now. Please try again in a moment. In the meantime, you can browse our <a href='Eesha buying folder/categories.html' class='text-orange-500 underline'>categories</a> or check out our <a href='index.html#flashDeals' class='text-orange-500 underline'>flash deals</a>!");
+                
+                let errorMsg = "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.";
+                if (error.name === 'AbortError') {
+                    errorMsg = "The AI assistant is taking too long to respond. This usually happens when the server is waking up. Please wait a minute and try again!";
+                } else {
+                    errorMsg += " In the meantime, you can browse our <a href='Eesha buying folder/categories.html' class='text-orange-500 underline'>categories</a> or check out our <a href='index.html#flashDeals' class='text-orange-500 underline'>flash deals</a>!";
+                }
+                appendMessage('ai', errorMsg);
             }
 
             isLoading = false;

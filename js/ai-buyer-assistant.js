@@ -748,6 +748,11 @@ Just talk to me naturally!<br>
                 }, 10000);
             }
 
+            // Build message text — always mention image so AI knows even if BLIP fails
+            const messageForAI = imageToSend
+                ? `[User attached an image] ${text || 'What is in this image?'}`
+                : text;
+
             // Call HuggingFace Space AI (180s timeout for free tier)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 180000);
@@ -755,7 +760,7 @@ Just talk to me naturally!<br>
             const response = await fetch(CONFIG.apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, context: contextForAI }),
+                body: JSON.stringify({ message: messageForAI, context: contextForAI }),
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -790,7 +795,14 @@ Just talk to me naturally!<br>
 
                 // Merge products from API response and action results
                 const allProducts = data.products?.length > 0 ? data.products : actionProducts;
-                addMessage('assistant', data.response, { products: allProducts, actionResult });
+
+                // Show image debug info so user can see on phone (no laptop needed)
+                let debugTag = '';
+                if (imageToSend) {
+                    const imgDesc = data.image_description || 'not processed';
+                    debugTag = `\n\n🖼️ Image sent (${Math.round(imageToSend.length / 1024)}KB) → AI saw: "${imgDesc}"`;
+                }
+                addMessage('assistant', data.response + debugTag, { products: allProducts, actionResult });
             } else {
                 addMessage('assistant', data.response || 'Sorry, an error occurred.');
             }

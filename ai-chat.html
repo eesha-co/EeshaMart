@@ -337,42 +337,23 @@
                     }
                 };
 
-                // Use AbortController for timeout (30s)
+                // Use AbortController for timeout (180s — AI inference on free tier can be slow)
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                const timeoutId = setTimeout(() => controller.abort(), 180000);
 
-                let response;
-                try {
-                    response = await fetch(AI_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                } catch (fetchError) {
-                    clearTimeout(timeoutId);
-                    // If timeout, try one more time (HF Space may need 2 requests to wake up)
-                    if (fetchError.name === 'AbortError') {
-                        updateTypingText('Server is waking up, retrying...');
-                        const controller2 = new AbortController();
-                        const timeoutId2 = setTimeout(() => controller2.abort(), 30000);
-                        try {
-                            response = await fetch(AI_API_URL, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload),
-                                signal: controller2.signal
-                            });
-                            clearTimeout(timeoutId2);
-                        } catch (retryError) {
-                            clearTimeout(timeoutId2);
-                            throw retryError;
-                        }
-                    } else {
-                        throw fetchError;
-                    }
-                }
+                // Update typing indicator after 10s so user knows it's still working
+                const statusTimer = setTimeout(() => {
+                    updateTypingText('🤔 Thinking hard, please wait...');
+                }, 10000);
+
+                const response = await fetch(AI_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                clearTimeout(statusTimer);
 
                 removeTypingIndicator();
 
@@ -414,9 +395,11 @@
                 
                 let errorMsg = "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.";
                 if (error.name === 'AbortError') {
-                    errorMsg = "The AI assistant is taking too long to respond. This usually happens when the server is waking up. Please wait a minute and try again!";
+                    errorMsg = "The AI assistant took too long to respond. This can happen when the server is busy — please try again.";
+                } else if (error.message === 'API request failed') {
+                    errorMsg = "The AI server returned an error. Please try again shortly.";
                 } else {
-                    errorMsg += " In the meantime, you can browse our <a href='Eesha buying folder/categories.html' class='text-orange-500 underline'>categories</a> or check out our <a href='index.html#flashDeals' class='text-orange-500 underline'>flash deals</a>!";
+                    errorMsg += " You can also browse our <a href='Eesha buying folder/categories.html' class='text-orange-500 underline'>categories</a> or check out our <a href='index.html#flashDeals' class='text-orange-500 underline'>flash deals</a>!";
                 }
                 appendMessage('ai', errorMsg);
             }

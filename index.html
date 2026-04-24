@@ -97,23 +97,6 @@
         ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
-        /* Splash Screen */
-        #splashScreen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease, visibility 0.5s ease;
-        }
-        #splashScreen.hidden { opacity: 0; visibility: hidden; }
-        
-        .splash-logo {
-            animation: pulse 2s ease-in-out infinite;
-        }
-
         /* Gradient Text */
         .gradient-text {
             background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
@@ -258,7 +241,7 @@
         }
         
         .splash-logo svg {
-            animation: logoGlow 2s ease-in-out infinite;
+            animation: none;
         }
 
         /* Marquee */
@@ -288,102 +271,6 @@
 </head>
 
 <body class="min-h-screen">
-    <!-- Splash Screen -->
-    <div id="splashScreen">
-        <div class="text-center">
-            <div class="splash-logo mb-8">
-                <svg viewBox="0 0 280 70" class="w-64 mx-auto">
-                    <defs>
-                        <!-- Main Gradient -->
-                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#fbbf24"/>
-                            <stop offset="50%" stop-color="#f59e0b"/>
-                            <stop offset="100%" stop-color="#d97706"/>
-                        </linearGradient>
-                        <!-- Text Gradient -->
-                        <linearGradient id="logoTextGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="#fbbf24"/>
-                            <stop offset="100%" stop-color="#f59e0b"/>
-                        </linearGradient>
-                        <!-- Shine Gradient -->
-                        <linearGradient id="logoShine" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
-                            <stop offset="50%" stop-color="rgba(255,255,255,0.4)"/>
-                            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-                        </linearGradient>
-                        <!-- Glow Filter -->
-                        <filter id="logoGlow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
-                    
-                    <!-- Logo Icon - Stylized Shopping Bag with "E" -->
-                    <g class="logo-icon" transform="translate(5, 8)">
-                        <!-- Bag Body -->
-                        <path class="logo-bag" d="M8 12 L8 50 Q8 54 12 54 L48 54 Q52 54 52 50 L52 12 Q52 8 48 8 L12 8 Q8 8 8 12 Z" 
-                              fill="url(#logoGrad)" filter="url(#logoGlow)"/>
-                        
-                        <!-- Bag Handle -->
-                        <path class="logo-bag" d="M18 8 Q18 -2 30 -2 Q42 -2 42 8" 
-                              fill="none" stroke="url(#logoGrad)" stroke-width="4" stroke-linecap="round"/>
-                        
-                        <!-- Letter "E" integrated into bag -->
-                        <path d="M18 22 L38 22 M18 35 L32 35 M18 48 L38 48 M18 22 L18 48" 
-                              fill="none" stroke="#0f172a" stroke-width="4" stroke-linecap="round"/>
-                        
-                        <!-- Sparkle/Star -->
-                        <g class="logo-sparkle" transform="translate(52, 6)">
-                            <path d="M0 0 L2 6 L8 8 L2 10 L0 16 L-2 10 L-8 8 L-2 6 Z" fill="#fbbf24"/>
-                        </g>
-                        
-                        <!-- Decorative dots -->
-                        <circle class="logo-wave" cx="20" cy="16" r="2" fill="#fff" opacity="0.6"/>
-                        <circle class="logo-wave" cx="26" cy="16" r="2" fill="#fff" opacity="0.8"/>
-                        <circle class="logo-wave" cx="32" cy="16" r="2" fill="#fff" opacity="0.6"/>
-                    </g>
-                    
-                    <!-- Logo Text -->
-                    <text x="70" y="48" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="38" font-weight="800" class="logo-text-path">
-                        EeshaMart
-                    </text>
-                    
-                    <!-- Tagline -->
-                    <text x="72" y="62" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="10" fill="#9ca3af" letter-spacing="2">
-                        NIGERIA'S #1 MARKETPLACE
-                    </text>
-                </svg>
-            </div>
-            <div class="flex items-center justify-center gap-2">
-                <div class="w-3 h-3 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
-                <div class="w-3 h-3 bg-brand-500 rounded-full animate-bounce" style="animation-delay: 0.15s;"></div>
-                <div class="w-3 h-3 bg-brand-600 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
-            </div>
-            <p class="text-gray-400 mt-4 text-sm">Loading amazing deals...</p>
-        </div>
-    </div>
-
-    <!-- Top Announcement Bar -->
-    <div class="bg-gray-900 text-white py-2 overflow-hidden">
-        <div class="marquee whitespace-nowrap">
-            <span class="inline-flex items-center gap-8 px-4">
-                <span class="flex items-center gap-2"><i class="fas fa-truck text-orange-400"></i> FREE delivery on orders over ₦10,000</span>
-                <span class="flex items-center gap-2"><i class="fas fa-shield-alt text-orange-400"></i> 100% Buyer Protection</span>
-                <span class="flex items-center gap-2"><i class="fas fa-undo text-orange-400"></i> Easy Returns within 7 days</span>
-                <span class="flex items-center gap-2"><i class="fas fa-headset text-orange-400"></i> 24/7 Customer Support</span>
-            </span>
-            <span class="inline-flex items-center gap-8 px-4">
-                <span class="flex items-center gap-2"><i class="fas fa-truck text-orange-400"></i> FREE delivery on orders over ₦10,000</span>
-                <span class="flex items-center gap-2"><i class="fas fa-shield-alt text-orange-400"></i> 100% Buyer Protection</span>
-                <span class="flex items-center gap-2"><i class="fas fa-undo text-orange-400"></i> Easy Returns within 7 days</span>
-                <span class="flex items-center gap-2"><i class="fas fa-headset text-orange-400"></i> 24/7 Customer Support</span>
-            </span>
-        </div>
-    </div>
-
     <!-- Header -->
     <header id="mainHeader" class="glass sticky top-0 z-50 border-b border-gray-100 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4">
@@ -428,23 +315,26 @@
                     </div>
                 </a>
 
-                <!-- Search Bar -->
-                <div class="search-box flex-1 max-w-2xl mx-4 lg:mx-8 hidden md:flex items-center bg-gray-100 rounded-full px-4 py-2.5 border-2 border-transparent focus-within:border-brand-400 transition-all">
-                    <i class="fas fa-search text-gray-400 mr-3"></i>
-                    <input type="text" id="searchInput" placeholder="Search for products, brands, categories..." 
-                           class="flex-1 bg-transparent outline-none text-sm" onkeypress="handleSearchKeypress(event)">
-                    <button onclick="performSearch()" class="bg-gradient-to-r from-brand-400 to-brand-500 text-dark-900 px-6 py-1.5 rounded-full font-semibold text-sm hover:from-brand-500 hover:to-brand-600 transition-all">
-                        Search
-                    </button>
+                <!-- Search Bar (visible on all screens) -->
+                <div class="search-box flex-1 max-w-2xl mx-2 sm:mx-4 lg:mx-8 flex items-center bg-gray-100 rounded-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-transparent focus-within:border-brand-400 transition-all">
+                    <i class="fas fa-search text-gray-400 mr-2 sm:mr-3 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Search products, brands..." 
+                           class="flex-1 bg-transparent outline-none text-xs sm:text-sm min-w-0" onkeypress="handleSearchKeypress(event)">
+                    <div class="flex items-center gap-1.5 sm:gap-2 ml-1">
+                        <button class="p-1.5 hover:bg-gray-200 rounded-full transition-colors hidden sm:block" title="Search by Image">
+                            <i class="fas fa-camera text-gray-400 text-sm"></i>
+                        </button>
+                        <button class="p-1.5 hover:bg-gray-200 rounded-full transition-colors hidden sm:block" title="Voice Search">
+                            <i class="fas fa-microphone text-gray-400 text-sm"></i>
+                        </button>
+                        <button onclick="performSearch()" class="bg-gradient-to-r from-brand-400 to-brand-500 text-dark-900 px-3 sm:px-6 py-1 sm:py-1.5 rounded-full font-semibold text-xs sm:text-sm hover:from-brand-500 hover:to-brand-600 transition-all">
+                            Search
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Right Actions -->
                 <div class="flex items-center gap-2 lg:gap-4">
-                    <!-- Mobile Search Toggle -->
-                    <button id="mobileSearchBtn" class="md:hidden p-2 hover:bg-gray-100 rounded-full">
-                        <i class="fas fa-search text-gray-600"></i>
-                    </button>
-
                     <!-- Auth Buttons (Logged Out) -->
                     <div id="authButtons" class="hidden sm:flex items-center gap-2">
                         <a href="Eesha buying folder/login.html" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors">
@@ -516,15 +406,6 @@
                 </div>
             </div>
 
-            <!-- Mobile Search (Hidden by default) -->
-            <div id="mobileSearch" class="hidden pb-4 md:hidden">
-                <div class="search-box flex items-center bg-gray-100 rounded-full px-4 py-2.5 border-2 border-transparent focus-within:border-brand-400">
-                    <i class="fas fa-search text-gray-400 mr-3"></i>
-                    <input type="text" id="mobileSearchInput" placeholder="Search products..." class="flex-1 bg-transparent outline-none text-sm" onkeypress="handleMobileSearchKeypress(event)">
-                    <button onclick="performMobileSearch()" class="bg-orange-500 text-white px-4 py-1.5 rounded-full text-sm font-medium">Search</button>
-                </div>
-            </div>
-
             <!-- Categories Nav -->
             <nav class="hidden lg:flex items-center gap-1 py-2 overflow-x-auto">
                 <a href="#" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-700 hover:bg-brand-50 hover:text-brand-600 transition-colors whitespace-nowrap">
@@ -555,124 +436,78 @@
         </div>
     </header>
 
-    <!-- Mobile Navigation (Bottom) -->
-    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div class="flex items-center justify-around py-2">
-            <a href="/" class="flex flex-col items-center gap-1 p-2 text-orange-500">
-                <i class="fas fa-home text-lg"></i>
-                <span class="text-xs font-medium">Home</span>
+    <!-- Bottom Navigation (visible on all screens) -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div class="flex items-center justify-around py-2 max-w-lg mx-auto">
+            <a href="/" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-orange-500">
+                <i class="fas fa-home text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs font-medium">Home</span>
             </a>
-            <a href="Eesha buying folder/categories.html" class="flex flex-col items-center gap-1 p-2 text-gray-500">
-                <i class="fas fa-th-large text-lg"></i>
-                <span class="text-xs">Categories</span>
+            <a href="Eesha buying folder/categories.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-th-large text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Categories</span>
             </a>
-            <a href="#" class="flex flex-col items-center gap-1 p-2 text-gray-500">
-                <i class="fas fa-bolt text-lg"></i>
-                <span class="text-xs">Deals</span>
+            <a href="ai-chat.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-orange-500 relative">
+                <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-12 h-1 bg-orange-500 rounded-full"></div>
+                <div class="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-lg -mt-5">
+                    <i class="fas fa-robot text-white text-base sm:text-lg"></i>
+                </div>
+                <span class="text-[10px] sm:text-xs font-semibold text-orange-500">AI Shop</span>
             </a>
-            <a href="Eesha buying folder/cart.html" class="flex flex-col items-center gap-1 p-2 text-gray-500 relative">
-                <i class="fas fa-shopping-cart text-lg"></i>
-                <span class="text-xs">Cart</span>
-                <span id="mobileCartCount" class="absolute top-0 right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+            <a href="Eesha buying folder/cart.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
+                <i class="fas fa-shopping-cart text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Cart</span>
+                <span id="mobileCartCount" class="absolute top-0 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
             </a>
-            <a id="mobileAccountBtn" href="Eesha buying folder/login.html" class="flex flex-col items-center gap-1 p-2 text-gray-500">
+            <a id="mobileAccountBtn" href="Eesha buying folder/login.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors">
                 <div class="relative">
-                    <i class="fas fa-user text-lg"></i>
+                    <i class="fas fa-user text-lg sm:text-xl"></i>
                     <i id="loggedInCheck" class="fas fa-check-circle text-green-500 text-xs absolute -bottom-0.5 -right-0.5 hidden"></i>
                 </div>
-                <span class="text-xs">Account</span>
+                <span class="text-[10px] sm:text-xs">Account</span>
             </a>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="pb-20 lg:pb-0">
-        <!-- Hero Section - Clean White Background -->
-        <section class="relative bg-white overflow-hidden">
-            <div class="max-w-7xl mx-auto px-4 py-8 lg:py-12">
-                <div class="grid lg:grid-cols-2 gap-6 lg:gap-8 items-center">
-                    <!-- Hero Content -->
-                    <div class="text-center lg:text-left">
-                        <div class="inline-flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full text-xs font-medium mb-4">
-                            <i class="fas fa-fire text-xs"></i>
-                            <span>Over 1 Million Products</span>
+    <main class="pb-20">
+        <!-- Search Options Row -->
+        <section class="py-3 lg:py-4 bg-white border-b border-gray-100">
+            <div class="max-w-7xl mx-auto px-3 lg:px-4">
+                <div class="grid grid-cols-3 gap-2 lg:gap-4">
+                    <a href="Eesha buying folder/categories.html" class="flex items-center gap-2 lg:gap-3 bg-orange-50 hover:bg-orange-100 rounded-xl lg:rounded-2xl p-2.5 lg:p-4 border border-orange-100 transition-colors group">
+                        <div class="w-8 h-8 lg:w-12 lg:h-12 bg-orange-100 rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-th-large text-orange-500 text-sm lg:text-xl"></i>
                         </div>
-                        <h1 class="text-2xl sm:text-3xl lg:text-5xl font-extrabold text-gray-900 leading-tight mb-3">
-                            Shop Smart,<br>
-                            <span class="text-orange-500">Save Big</span>
-                        </h1>
-                        <p class="text-gray-600 text-sm lg:text-lg mb-6 max-w-lg mx-auto lg:mx-0">
-                            Discover amazing deals from trusted merchants and fresh produce directly from local farmers.
-                        </p>
-                        <div class="flex justify-center lg:justify-start">
-                            <a href="#trending" class="inline-flex items-center justify-center gap-2 bg-orange-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition-all">
-                                <i class="fas fa-shopping-bag text-xs"></i>
-                                Start Shopping
-                            </a>
+                        <div class="min-w-0">
+                            <p class="text-xs lg:text-sm font-semibold text-gray-800 truncate">Shop by Category</p>
+                            <p class="text-[10px] lg:text-xs text-gray-500 hidden sm:block">Browse all</p>
                         </div>
-                        
-                        <!-- Stats -->
-                        <div class="flex items-center justify-center lg:justify-start gap-4 lg:gap-6 mt-6">
-                            <div class="text-center">
-                                <div class="text-base lg:text-2xl font-bold text-gray-900">1M+</div>
-                                <div class="text-gray-500 text-xs">Products</div>
-                            </div>
-                            <div class="w-px h-6 bg-gray-200"></div>
-                            <div class="text-center">
-                                <div class="text-base lg:text-2xl font-bold text-gray-900">50K+</div>
-                                <div class="text-gray-500 text-xs">Sellers</div>
-                            </div>
-                            <div class="w-px h-6 bg-gray-200"></div>
-                            <div class="text-center">
-                                <div class="text-base lg:text-2xl font-bold text-gray-900">500K+</div>
-                                <div class="text-gray-500 text-xs">Buyers</div>
-                            </div>
+                    </a>
+                    <a href="ai-chat.html" class="flex items-center gap-2 lg:gap-3 bg-orange-50 hover:bg-orange-100 rounded-xl lg:rounded-2xl p-2.5 lg:p-4 border border-orange-100 transition-colors group">
+                        <div class="w-8 h-8 lg:w-12 lg:h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-md">
+                            <i class="fas fa-robot text-white text-sm lg:text-xl"></i>
                         </div>
-                    </div>
-                    
-                    <!-- Hero Image Grid -->
-                    <div class="relative hidden lg:block">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-3">
-                                <div class="bg-white rounded-xl p-3 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                                    <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop" alt="Product" class="w-full h-32 object-cover rounded-lg">
-                                    <div class="mt-2">
-                                        <p class="text-xs font-medium text-gray-500">Smart Watch</p>
-                                        <p class="text-sm font-bold text-gray-900">₦25,000</p>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                    <div class="flex items-center gap-2 text-gray-700">
-                                        <i class="fas fa-leaf text-green-500 text-sm"></i>
-                                        <span class="font-medium text-sm">Farm Fresh</span>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">Direct from farmers</p>
-                                </div>
-                            </div>
-                            <div class="space-y-3 mt-6">
-                                <div class="bg-orange-50 rounded-xl p-3 border border-orange-100">
-                                    <div class="flex items-center gap-2 text-orange-600">
-                                        <i class="fas fa-bolt text-sm"></i>
-                                        <span class="font-medium text-sm">Flash Deals</span>
-                                    </div>
-                                    <p class="text-xs text-orange-500 mt-1">Up to 70% OFF</p>
-                                </div>
-                                <div class="bg-white rounded-xl p-3 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
-                                    <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop" alt="Product" class="w-full h-32 object-cover rounded-lg">
-                                    <div class="mt-2">
-                                        <p class="text-xs font-medium text-gray-500">Headphones</p>
-                                        <p class="text-sm font-bold text-gray-900">₦15,000</p>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="min-w-0">
+                            <p class="text-xs lg:text-sm font-semibold text-gray-800 truncate">AI Shopping Assistant</p>
+                            <p class="text-[10px] lg:text-xs text-orange-500 font-medium hidden sm:block">AI-powered</p>
                         </div>
-                    </div>
+                    </a>
+                    <a href="#flashDeals" class="flex items-center gap-2 lg:gap-3 bg-orange-50 hover:bg-orange-100 rounded-xl lg:rounded-2xl p-2.5 lg:p-4 border border-orange-100 transition-colors group">
+                        <div class="w-8 h-8 lg:w-12 lg:h-12 bg-orange-100 rounded-lg lg:rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-trophy text-orange-500 text-sm lg:text-xl"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs lg:text-sm font-semibold text-gray-800 truncate">Top Deals</p>
+                            <p class="text-[10px] lg:text-xs text-gray-500 hidden sm:block">Up to 70% off</p>
+                        </div>
+                    </a>
                 </div>
             </div>
         </section>
 
         <!-- Flash Deals Section - Clean Design -->
-        <section class="py-4 lg:py-8 bg-gray-50">
+        <section id="flashDeals" class="py-4 lg:py-8 bg-gray-50">
             <div class="max-w-7xl mx-auto px-3 lg:px-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -1095,15 +930,11 @@
         const supabaseClient = window.supabase;
         window.currentUser = null;
 
-        // ===== Splash Screen =====
+        // ===== Initialize App =====
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.getElementById('splashScreen').classList.add('hidden');
-                initializeApp();
-            }, 1500);
+            initializeApp();
         });
 
-        // ===== Initialize App =====
         async function initializeApp() {
             await updateAuthUI();
             await loadProducts();
@@ -1315,15 +1146,6 @@
                 }
             });
             
-            // Mobile search toggle
-            const mobileSearchBtn = document.getElementById('mobileSearchBtn');
-            const mobileSearch = document.getElementById('mobileSearch');
-            if (mobileSearchBtn && mobileSearch) {
-                mobileSearchBtn.addEventListener('click', () => {
-                    mobileSearch.classList.toggle('hidden');
-                });
-            }
-            
             // User dropdown
             const userAvatarBtn = document.getElementById('userAvatarBtn');
             const userDropdown = document.getElementById('userDropdown');
@@ -1484,22 +1306,8 @@
             }
         }
 
-        function handleMobileSearchKeypress(event) {
-            if (event.key === 'Enter') {
-                performMobileSearch();
-            }
-        }
-
         function performSearch() {
             const searchInput = document.getElementById('searchInput');
-            const query = searchInput.value.trim();
-            if (query) {
-                window.location.href = `search-result.html?q=${encodeURIComponent(query)}`;
-            }
-        }
-
-        function performMobileSearch() {
-            const searchInput = document.getElementById('mobileSearchInput');
             const query = searchInput.value.trim();
             if (query) {
                 window.location.href = `search-result.html?q=${encodeURIComponent(query)}`;

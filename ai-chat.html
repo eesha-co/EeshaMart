@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Shop — EeshaMart AI Shopping Assistant</title>
+    <meta name="description" content="Chat with EeshaMart's AI assistant to find products, compare prices, and get shopping recommendations.">
+    
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind & Supabase -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'typing': 'typing 1.5s infinite',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        typing: {
+                            '0%, 60%, 100%': { opacity: '0.3' },
+                            '30%': { opacity: '1' },
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html { scroll-behavior: smooth; }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+            background: #f9fafb;
+            color: #1f2937;
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Chat Messages */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 120px - 70px);
+            height: calc(100dvh - 120px - 70px);
+            overflow-y: auto;
+            padding-bottom: 16px;
+        }
+
+        .chat-container::-webkit-scrollbar { width: 4px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+        .message-bubble {
+            max-width: 80%;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        /* Typing Indicator */
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #9ca3af;
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .typing-dot:nth-child(1) { animation: typing 1.4s infinite 0s; }
+        .typing-dot:nth-child(2) { animation: typing 1.4s infinite 0.2s; }
+        .typing-dot:nth-child(3) { animation: typing 1.4s infinite 0.4s; }
+
+        /* Product card in chat */
+        .chat-product-card {
+            transition: all 0.2s ease;
+        }
+        .chat-product-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Mobile Bottom Nav */
+        .mobile-nav {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Input focus */
+        .chat-input:focus-within {
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
+        }
+
+        /* Quick action chip */
+        .chip {
+            transition: all 0.2s ease;
+        }
+        .chip:hover {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+        .chip:active {
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50 border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-14 lg:h-16">
+                <!-- Back Button -->
+                <a href="/" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+                    <i class="fas fa-arrow-left text-lg"></i>
+                    <span class="text-sm font-medium hidden sm:inline">Back</span>
+                </a>
+
+                <!-- Title -->
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-md">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="text-center">
+                        <h1 class="text-sm lg:text-base font-bold text-gray-900">AI Shopping Assistant</h1>
+                        <div class="flex items-center gap-1 justify-center">
+                            <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                            <span class="text-[10px] text-green-600 font-medium">Online</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clear Chat -->
+                <button onclick="clearChat()" class="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors p-2" title="Clear Chat">
+                    <i class="fas fa-trash-alt text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <div id="chatContainer" class="chat-container px-4">
+        <!-- Welcome Message -->
+        <div class="flex items-start gap-2.5 mb-4 mt-4 animate-fade-in">
+            <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                <i class="fas fa-robot text-white text-xs"></i>
+            </div>
+            <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100">
+                <p class="text-sm text-gray-700 leading-relaxed">Hi! I'm your <strong class="text-orange-500">EeshaMart AI Assistant</strong>. I can help you find products, compare prices, track deals, and more! What are you looking for today?</p>
+                <p class="text-[10px] text-gray-400 mt-1.5">Just now</p>
+            </div>
+        </div>
+
+        <!-- Quick Suggestion Chips -->
+        <div id="suggestionChips" class="flex flex-wrap gap-2 mb-4 ml-10">
+            <button onclick="sendSuggestion('Show me phones under ₦50,000')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                <i class="fas fa-mobile-alt text-orange-400"></i>
+                Phones under ₦50k
+            </button>
+            <button onclick="sendSuggestion('Best deals today')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                <i class="fas fa-bolt text-orange-400"></i>
+                Best deals today
+            </button>
+            <button onclick="sendSuggestion('Farm fresh produce')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                <i class="fas fa-leaf text-orange-400"></i>
+                Farm fresh produce
+            </button>
+            <button onclick="sendSuggestion('Electronics')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                <i class="fas fa-laptop text-orange-400"></i>
+                Electronics
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat Input Bar -->
+    <div class="fixed bottom-[70px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2.5 z-40" style="padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));">
+        <div class="max-w-3xl mx-auto">
+            <div class="chat-input flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2 border-2 border-transparent transition-all">
+                <input type="text" id="chatInput" placeholder="Ask me anything about products..." 
+                       class="flex-1 bg-transparent outline-none text-sm" 
+                       onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()" class="w-9 h-9 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center hover:from-orange-500 hover:to-orange-600 transition-all shadow-md flex-shrink-0">
+                    <i class="fas fa-paper-plane text-white text-sm"></i>
+                </button>
+            </div>
+            <p class="text-center text-[10px] text-gray-400 mt-1.5">Powered by EeshaMart AI</p>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div class="flex items-center justify-around py-2 max-w-lg mx-auto">
+            <a href="/" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-home text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Home</span>
+            </a>
+            <a href="Eesha buying folder/categories.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-th-large text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Categories</span>
+            </a>
+            <a href="ai-chat.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-orange-500 relative">
+                <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-12 h-1 bg-orange-500 rounded-full"></div>
+                <div class="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center shadow-lg -mt-5">
+                    <i class="fas fa-robot text-white text-base sm:text-lg"></i>
+                </div>
+                <span class="text-[10px] sm:text-xs font-semibold text-orange-500">AI Shop</span>
+            </a>
+            <a href="Eesha buying folder/cart.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors relative">
+                <i class="fas fa-shopping-cart text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Cart</span>
+                <span id="mobileCartCount" class="absolute top-0 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
+            </a>
+            <a href="Eesha buying folder/login.html" class="flex flex-col items-center gap-0.5 p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fas fa-user text-lg sm:text-xl"></i>
+                <span class="text-[10px] sm:text-xs">Account</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Scripts -->
+    <script src="js/config/supabase.js?v=8"></script>
+    <script>
+        // ===== Global State =====
+        const supabaseClient = window.supabase;
+        const AI_API_URL = 'https://fuhaddesmond-eeshamart-ai.hf.space/api/chat';
+        let conversationHistory = [];
+        let isLoading = false;
+
+        // ===== Initialize =====
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCartCount();
+        });
+
+        // ===== Update Cart Count =====
+        async function updateCartCount() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session?.user) {
+                    const { count } = await supabaseClient
+                        .from('cart_items')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', session.user.id);
+                    const total = count || 0;
+                    const el = document.getElementById('mobileCartCount');
+                    if (el) {
+                        el.textContent = total;
+                        el.style.display = total > 0 ? 'flex' : 'none';
+                    }
+                }
+            } catch (e) {
+                console.log('Cart count error:', e);
+            }
+        }
+
+        // ===== Send Suggestion =====
+        function sendSuggestion(text) {
+            document.getElementById('chatInput').value = text;
+            sendMessage();
+        }
+
+        // ===== Send Message =====
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message || isLoading) return;
+
+            input.value = '';
+            isLoading = true;
+
+            // Add user message to chat
+            appendMessage('user', message);
+            conversationHistory.push({ role: 'user', content: message });
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                // Get auth status
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                const isLoggedIn = !!session?.user;
+
+                const payload = {
+                    message: message,
+                    context: {
+                        cartItems: [],
+                        conversationHistory: conversationHistory.slice(-10),
+                        isLoggedIn: isLoggedIn
+                    }
+                };
+
+                const response = await fetch(AI_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
+                const data = await response.json();
+                
+                // Handle the response
+                if (data.response) {
+                    appendMessage('ai', data.response);
+                    conversationHistory.push({ role: 'assistant', content: data.response });
+                } else if (data.message) {
+                    appendMessage('ai', data.message);
+                    conversationHistory.push({ role: 'assistant', content: data.message });
+                } else if (data.products && data.products.length > 0) {
+                    // If response contains products, show them as cards
+                    let textResponse = data.text || `I found ${data.products.length} products for you:`;
+                    appendMessage('ai', textResponse);
+                    conversationHistory.push({ role: 'assistant', content: textResponse });
+                    appendProductCards(data.products);
+                } else {
+                    // Fallback for unexpected response format
+                    const fallbackText = typeof data === 'string' ? data : JSON.stringify(data);
+                    appendMessage('ai', fallbackText || "I'm sorry, I couldn't process that. Could you try rephrasing your question?");
+                    conversationHistory.push({ role: 'assistant', content: fallbackText });
+                }
+
+                // Hide suggestion chips after first interaction
+                const chips = document.getElementById('suggestionChips');
+                if (chips) {
+                    chips.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('AI Chat Error:', error);
+                removeTypingIndicator();
+                appendMessage('ai', "I'm sorry, I'm having trouble connecting right now. Please try again in a moment. In the meantime, you can browse our <a href='Eesha buying folder/categories.html' class='text-orange-500 underline'>categories</a> or check out our <a href='index.html#flashDeals' class='text-orange-500 underline'>flash deals</a>!");
+            }
+
+            isLoading = false;
+        }
+
+        // ===== Append Message =====
+        function appendMessage(sender, content) {
+            const container = document.getElementById('chatContainer');
+            const now = new Date();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (sender === 'user') {
+                const div = document.createElement('div');
+                div.className = 'flex justify-end mb-3';
+                div.innerHTML = `
+                    <div class="message-bubble bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl rounded-tr-md p-3.5 shadow-sm max-w-[80%]">
+                        <p class="text-sm text-white leading-relaxed">${escapeHtml(content)}</p>
+                        <p class="text-[10px] text-orange-100 mt-1.5 text-right">${time}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            } else {
+                const div = document.createElement('div');
+                div.className = 'flex items-start gap-2.5 mb-3';
+                div.innerHTML = `
+                    <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i class="fas fa-robot text-white text-xs"></i>
+                    </div>
+                    <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100 max-w-[80%]">
+                        <div class="text-sm text-gray-700 leading-relaxed">${content}</div>
+                        <p class="text-[10px] text-gray-400 mt-1.5">${time}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+
+            scrollToBottom();
+        }
+
+        // ===== Append Product Cards =====
+        function appendProductCards(products) {
+            const container = document.getElementById('chatContainer');
+            const scrollWrapper = document.createElement('div');
+            scrollWrapper.className = 'ml-10 mb-3';
+
+            let cardsHtml = '<div class="flex gap-2 overflow-x-auto pb-2" style="scrollbar-width: thin;">';
+            
+            products.forEach(product => {
+                const name = product.name || product.title || 'Product';
+                const price = product.price || 0;
+                const discount = product.discount_percentage || 0;
+                const discountedPrice = discount > 0 ? price * (1 - discount / 100) : price;
+                const image = product.image_url || product.images?.[0] || 'https://via.placeholder.com/200x200?text=Product';
+                const rating = product.rating || 4.5;
+                const productId = product.id || '';
+
+                cardsHtml += `
+                    <a href="Eesha buying folder/product.html?id=${productId}" class="chat-product-card flex-shrink-0 w-40 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm cursor-pointer">
+                        <div class="relative">
+                            <img src="${image}" alt="${name}" class="w-full h-28 object-cover" onerror="this.src='https://via.placeholder.com/200x200?text=Product'">
+                            ${discount > 0 ? `<span class="absolute top-1.5 left-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">-${discount}%</span>` : ''}
+                        </div>
+                        <div class="p-2">
+                            <h4 class="text-xs font-medium text-gray-800 line-clamp-2 leading-tight mb-1">${name}</h4>
+                            <div class="flex items-center gap-1 mb-1">
+                                <div class="flex text-orange-400 text-[10px]">
+                                    ${'<i class="fas fa-star"></i>'.repeat(Math.floor(rating))}
+                                </div>
+                                <span class="text-[10px] text-gray-400">${rating}</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-sm font-bold text-gray-900">₦${Math.round(discountedPrice).toLocaleString()}</span>
+                                ${discount > 0 ? `<span class="text-[10px] text-gray-400 line-through">₦${price.toLocaleString()}</span>` : ''}
+                            </div>
+                        </div>
+                    </a>
+                `;
+            });
+
+            cardsHtml += '</div>';
+            scrollWrapper.innerHTML = cardsHtml;
+            container.appendChild(scrollWrapper);
+            scrollToBottom();
+        }
+
+        // ===== Typing Indicator =====
+        function showTypingIndicator() {
+            const container = document.getElementById('chatContainer');
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = 'flex items-start gap-2.5 mb-3';
+            div.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <i class="fas fa-robot text-white text-xs"></i>
+                </div>
+                <div class="bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100">
+                    <div class="flex items-center gap-1 py-1">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        // ===== Clear Chat =====
+        function clearChat() {
+            if (!confirm('Clear all chat messages?')) return;
+            
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+            conversationHistory = [];
+
+            // Re-add welcome message
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'flex items-start gap-2.5 mb-4 mt-4 animate-fade-in';
+            welcomeDiv.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <i class="fas fa-robot text-white text-xs"></i>
+                </div>
+                <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-700 leading-relaxed">Hi! I'm your <strong class="text-orange-500">EeshaMart AI Assistant</strong>. I can help you find products, compare prices, and more! What are you looking for?</p>
+                    <p class="text-[10px] text-gray-400 mt-1.5">Just now</p>
+                </div>
+            `;
+            container.appendChild(welcomeDiv);
+
+            // Re-add suggestion chips
+            const chipsDiv = document.createElement('div');
+            chipsDiv.id = 'suggestionChips';
+            chipsDiv.className = 'flex flex-wrap gap-2 mb-4 ml-10';
+            chipsDiv.innerHTML = `
+                <button onclick="sendSuggestion('Show me phones under ₦50,000')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-mobile-alt text-orange-400"></i> Phones under ₦50k
+                </button>
+                <button onclick="sendSuggestion('Best deals today')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-bolt text-orange-400"></i> Best deals today
+                </button>
+                <button onclick="sendSuggestion('Farm fresh produce')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-leaf text-orange-400"></i> Farm fresh produce
+                </button>
+                <button onclick="sendSuggestion('Electronics')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-laptop text-orange-400"></i> Electronics
+                </button>
+            `;
+            container.appendChild(chipsDiv);
+        }
+
+        // ===== Utilities =====
+        function scrollToBottom() {
+            const container = document.getElementById('chatContainer');
+            requestAnimationFrame(() => {
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

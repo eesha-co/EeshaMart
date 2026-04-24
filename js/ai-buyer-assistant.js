@@ -2,6 +2,10 @@
  * EeshaMart AI Buyer Assistant - "Eesha"
  * FREE & OPEN SOURCE - No API keys required!
  * 
+ * Supports TWO modes:
+ * 1. Widget mode (index.html) — creates floating chat widget
+ * 2. Full-page mode (ai-chat.html) — attaches to existing page UI
+ * 
  * The AI backend handles natural language understanding
  * Frontend just sends context and executes actions
  */
@@ -10,11 +14,13 @@
     'use strict';
 
     const CONFIG = {
-        // Use HuggingFace Space AI (FREE, live, and working!)
         apiUrl: 'https://fuhaddesmond-eeshamart-ai.hf.space/api/chat',
         sessionKey: 'eeshamart_ai_session',
         debug: true
     };
+
+    // Detect full-page mode: ai-chat.html has #chatContainer
+    const isFullPage = !!document.getElementById('chatContainer');
 
     // State
     let isOpen = false;
@@ -41,8 +47,181 @@
     document.addEventListener('DOMContentLoaded', init);
 
     function init() {
-        setTimeout(createWidget, 500);
+        if (isFullPage) {
+            initFullPage();
+        } else {
+            setTimeout(createWidget, 500);
+        }
     }
+
+    // ============================================
+    // FULL-PAGE MODE (ai-chat.html)
+    // ============================================
+
+    function initFullPage() {
+        console.log('[Eesha AI] Full-page mode activated');
+
+        // Wire suggestion chips to sendMessage
+        document.querySelectorAll('.chip[data-query], .chip[onclick]').forEach(btn => {
+            // Chips already have onclick="sendSuggestion('...')" in HTML
+        });
+
+        // Make sendSuggestion available globally
+        window.sendSuggestion = function(text) {
+            document.getElementById('chatInput').value = text;
+            sendMessage();
+        };
+
+        // Make clearChat available globally
+        window.clearChat = clearConversation;
+    }
+
+    function fullPage_addMessage(role, content, data = {}) {
+        const chatContainer = document.getElementById('chatContainer');
+        if (!chatContainer) return;
+        const now = new Date();
+        const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isUser = role === 'user';
+        const parsed = content
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+
+        // Build image HTML if provided
+        let imageHtml = '';
+        if (data.image) {
+            imageHtml = `<div style="margin-bottom:8px"><img src="${data.image}" alt="Shared image" style="max-width:200px;max-height:150px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.1)"></div>`;
+        }
+
+        if (isUser) {
+            const div = document.createElement('div');
+            div.className = 'flex justify-end mb-3';
+            div.innerHTML = `
+                <div class="message-bubble bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl rounded-tr-md p-3.5 shadow-sm max-w-[80%]">
+                    ${imageHtml}
+                    <p class="text-sm text-white leading-relaxed">${parsed}</p>
+                    <p class="text-[10px] text-orange-100 mt-1.5 text-right">${time}</p>
+                </div>`;
+            chatContainer.appendChild(div);
+        } else {
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-2.5 mb-3';
+            div.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <i class="fas fa-robot text-white text-xs"></i>
+                </div>
+                <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100 max-w-[80%]">
+                    ${imageHtml}
+                    <div class="text-sm text-gray-700 leading-relaxed">${parsed}</div>
+                    ${renderProductsFullPage(data.products)}
+                    ${renderActionResultFullPage(data.actionResult)}
+                    <p class="text-[10px] text-gray-400 mt-1.5">${time}</p>
+                </div>`;
+            chatContainer.appendChild(div);
+        }
+
+        fullPageScrollToBottom();
+        addProductHandlers();
+
+        // Hide suggestion chips after first interaction
+        if (conversationHistory.length > 0 || role === 'user') {
+            const chips = document.getElementById('suggestionChips');
+            if (chips) chips.style.display = 'none';
+        }
+    }
+
+    function renderProductsFullPage(products) {
+        if (!products || products.length === 0) return '';
+        let html = '<div class="mt-2 space-y-2">';
+        products.slice(0, 5).forEach((p, i) => {
+            const name = p.name || 'Product';
+            const price = (p.price || 0).toLocaleString();
+            const image = p.image_url || 'https://via.placeholder.com/50';
+            html += `
+                <div class="ai-product-card flex items-center gap-2.5 p-2 bg-gray-50 rounded-lg cursor-pointer border border-transparent hover:border-orange-300 transition-all" data-product-id="${p.id}" data-index="${i + 1}">
+                    <img src="${image}" alt="${name}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-semibold text-gray-800 truncate">${i + 1}. ${name}</div>
+                        <div class="text-sm font-bold text-orange-600">₦${price}</div>
+                        <div class="text-[10px] text-gray-400">${p.category || ''}</div>
+                    </div>
+                    <div class="flex gap-1.5 flex-shrink-0">
+                        <button class="ai-action-btn px-2.5 py-1 rounded-md text-[10px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-gray-900 hover:scale-105 transition-transform" data-action="add" data-product-id="${p.id}"><i class="fas fa-cart-plus"></i> Add</button>
+                        <button class="ai-action-btn px-2.5 py-1 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-600 hover:scale-105 transition-transform" data-action="view" data-product-id="${p.id}"><i class="fas fa-eye"></i> View</button>
+                    </div>
+                </div>`;
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function renderActionResultFullPage(result) {
+        if (!result) return '';
+        const isSuccess = result.success;
+        const isWarning = result.requiresAuth;
+        let bgClass, textColor, iconClass;
+        if (isSuccess) {
+            bgClass = 'bg-green-50 border-green-200';
+            textColor = 'text-green-700';
+            iconClass = 'fa-check-circle text-green-500';
+        } else if (isWarning) {
+            bgClass = 'bg-yellow-50 border-yellow-200';
+            textColor = 'text-yellow-700';
+            iconClass = 'fa-exclamation-triangle text-yellow-500';
+        } else {
+            bgClass = 'bg-red-50 border-red-200';
+            textColor = 'text-red-700';
+            iconClass = 'fa-times-circle text-red-500';
+        }
+        return `<div class="flex items-center gap-2 p-2.5 rounded-lg mt-2 text-xs ${bgClass} border ${textColor}"><i class="fas ${iconClass}"></i> <span>${result.message}</span></div>`;
+    }
+
+    function fullPage_showTypingIndicator() {
+        const chatContainer = document.getElementById('chatContainer');
+        if (!chatContainer) return;
+        const div = document.createElement('div');
+        div.id = 'typingIndicator';
+        div.className = 'flex items-start gap-2.5 mb-3';
+        div.innerHTML = `
+            <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                <i class="fas fa-robot text-white text-xs"></i>
+            </div>
+            <div class="bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100">
+                <div class="flex items-center gap-1 py-1">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            </div>`;
+        chatContainer.appendChild(div);
+        fullPageScrollToBottom();
+    }
+
+    function fullPage_removeTypingIndicator() {
+        document.getElementById('typingIndicator')?.remove();
+    }
+
+    function fullPage_updateTypingText(text) {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) {
+            const bubble = indicator.querySelector('.bg-white');
+            if (bubble) {
+                bubble.innerHTML = `<p class="text-sm text-orange-500">${text}</p>`;
+            }
+        }
+    }
+
+    function fullPageScrollToBottom() {
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+            requestAnimationFrame(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
+    }
+
+    // ============================================
+    // WIDGET MODE (index.html) — original code
+    // ============================================
 
     function createWidget() {
         container = document.createElement('div');
@@ -215,21 +394,26 @@
     }
 
     function showWelcomeMessage() {
-        addMessage('assistant', `<strong>👋 Hi! I'm Eesha, your AI shopping assistant!</strong><br><br>
+        if (isFullPage) return; // Welcome already in HTML
+        addMessage('assistant', `<strong>Hi! I'm Eesha, your AI shopping assistant!</strong><br><br>
 I can help you with:<br>
-• Finding products within your budget<br>
-• Planning your shopping list<br>
-• Answering any questions<br><br>
+- Finding products within your budget<br>
+- Planning your shopping list<br>
+- Answering any questions<br><br>
 Just talk to me naturally!<br>
 <strong>100% FREE & Open Source!</strong>`);
     }
 
     function addMessage(role, content, data = {}) {
+        if (isFullPage) {
+            fullPage_addMessage(role, content, data);
+            return;
+        }
+
         const messagesContainer = document.getElementById('ai-messages');
         const isUser = role === 'user';
         const parsed = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
         
-        // Build image HTML if provided
         let imageHtml = '';
         if (data.image) {
             imageHtml = `<div class="ai-message-image"><img src="${data.image}" alt="Shared image"></div>`;
@@ -243,8 +427,8 @@ Just talk to me naturally!<br>
                 <div class="ai-message-content">
                     ${imageHtml}
                     <div class="ai-bubble ${isUser ? 'ai-bubble-user' : 'ai-bubble-assistant'}">${parsed}</div>
-                    ${renderProducts(data.products)}
-                    ${renderActionResult(data.actionResult)}
+                    ${renderProductsWidget(data.products)}
+                    ${renderActionResultWidget(data.actionResult)}
                 </div>
             </div>`;
         
@@ -257,7 +441,7 @@ Just talk to me naturally!<br>
         }
     }
 
-    function renderProducts(products) {
+    function renderProductsWidget(products) {
         if (!products || products.length === 0) return '';
         return products.slice(0, 5).map((p, i) => `
             <div class="ai-product-card" data-product-id="${p.id}" data-index="${i + 1}">
@@ -275,7 +459,7 @@ Just talk to me naturally!<br>
         `).join('');
     }
 
-    function renderActionResult(result) {
+    function renderActionResultWidget(result) {
         if (!result) return '';
         const cls = result.success ? '' : (result.requiresAuth ? 'warning' : 'error');
         const icon = result.success ? 'fa-check-circle' : (result.requiresAuth ? 'fa-exclamation-triangle' : 'fa-times-circle');
@@ -283,18 +467,19 @@ Just talk to me naturally!<br>
     }
 
     function addProductHandlers() {
-        const container = document.getElementById('ai-messages');
-        
-        container.querySelectorAll('.ai-product-card:not([data-handled])').forEach(card => {
+        const parentEl = isFullPage ? document.getElementById('chatContainer') : document.getElementById('ai-messages');
+        if (!parentEl) return;
+
+        parentEl.querySelectorAll('.ai-product-card:not([data-handled])').forEach(card => {
             card.setAttribute('data-handled', 'true');
             card.addEventListener('click', e => {
                 if (!e.target.closest('.ai-action-btn')) {
-                    window.location.href = `/Eesha buying folder/product.html?id=${card.dataset.productId}`;
+                    window.location.href = `Eesha buying folder/product.html?id=${card.dataset.productId}`;
                 }
             });
         });
 
-        container.querySelectorAll('.ai-action-btn:not([data-handled])').forEach(btn => {
+        parentEl.querySelectorAll('.ai-action-btn:not([data-handled])').forEach(btn => {
             btn.setAttribute('data-handled', 'true');
             btn.addEventListener('click', async e => {
                 e.stopPropagation();
@@ -312,17 +497,21 @@ Just talk to me naturally!<br>
                     } else {
                         btn.innerHTML = '<i class="fas fa-cart-plus"></i> Add';
                         if (result?.requiresAuth) {
-                            addMessage('assistant', 'Please <a href="/Eesha buying folder/login.html" style="color:#f59e0b;font-weight:600;">login</a> to add items.');
+                            addMessage('assistant', 'Please <a href="Eesha buying folder/login.html" style="color:#f59e0b;font-weight:600;">login</a> to add items.');
                         }
                     }
                 } else if (action === 'view') {
-                    window.location.href = `/Eesha buying folder/product.html?id=${productId}`;
+                    window.location.href = `Eesha buying folder/product.html?id=${productId}`;
                 }
             });
         });
     }
 
     function addLoading() {
+        if (isFullPage) {
+            fullPage_showTypingIndicator();
+            return;
+        }
         const c = document.getElementById('ai-messages');
         c.insertAdjacentHTML('beforeend', `<div class="ai-message" id="ai-loading-msg">
             <div class="ai-avatar ai-avatar-assistant"><i class="fas fa-wand-magic-sparkles"></i></div>
@@ -332,6 +521,10 @@ Just talk to me naturally!<br>
     }
 
     function removeLoading() {
+        if (isFullPage) {
+            fullPage_removeTypingIndicator();
+            return;
+        }
         document.getElementById('ai-loading-msg')?.remove();
     }
 
@@ -341,8 +534,28 @@ Just talk to me naturally!<br>
         const reader = new FileReader();
         reader.onload = ev => {
             selectedImage = ev.target.result;
-            document.getElementById('ai-preview-img').src = selectedImage;
-            document.getElementById('ai-image-preview').classList.remove('ai-hidden');
+            if (isFullPage) {
+                // Show image preview in chat input area
+                let preview = document.getElementById('ai-image-preview');
+                if (!preview) {
+                    preview = document.createElement('div');
+                    preview.id = 'ai-image-preview';
+                    preview.className = 'fixed bottom-[110px] left-4 right-4 bg-white border border-gray-200 rounded-xl p-2 shadow-lg z-40';
+                    preview.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <img id="ai-preview-img" src="" alt="Preview" class="w-16 h-16 rounded-lg object-cover">
+                            <span class="text-xs text-gray-500 flex-1">Image attached</span>
+                            <button id="ai-remove-image" class="w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-xs hover:bg-red-200"><i class="fas fa-times"></i></button>
+                        </div>`;
+                    document.body.appendChild(preview);
+                    document.getElementById('ai-remove-image').addEventListener('click', removeSelectedImage);
+                }
+                document.getElementById('ai-preview-img').src = selectedImage;
+                preview.style.display = 'block';
+            } else {
+                document.getElementById('ai-preview-img').src = selectedImage;
+                document.getElementById('ai-image-preview').classList.remove('ai-hidden');
+            }
         };
         reader.readAsDataURL(file);
         e.target.value = '';
@@ -350,7 +563,12 @@ Just talk to me naturally!<br>
 
     function removeSelectedImage() {
         selectedImage = null;
-        document.getElementById('ai-image-preview').classList.add('ai-hidden');
+        if (isFullPage) {
+            const preview = document.getElementById('ai-image-preview');
+            if (preview) preview.style.display = 'none';
+        } else {
+            document.getElementById('ai-image-preview').classList.add('ai-hidden');
+        }
     }
 
     function handleKeyPress(e) {
@@ -360,17 +578,18 @@ Just talk to me naturally!<br>
         }
     }
 
+    // ============================================
+    // SHARED LOGIC — used by BOTH modes
+    // ============================================
+
     async function updateContext() {
         try {
             console.log('[Eesha AI] Checking login status...');
             console.log('[Eesha AI] window.Cart exists:', !!window.Cart);
-            console.log('[Eesha AI] window.supabaseClient exists:', !!window.supabaseClient);
             console.log('[Eesha AI] window.supabase exists:', !!window.supabase);
             
-            // Check if Cart module exists
             if (!window.Cart) {
                 console.error('[Eesha AI] Cart module not loaded!');
-                // Try to wait a bit and check again
                 await new Promise(resolve => setTimeout(resolve, 500));
                 if (!window.Cart) {
                     console.error('[Eesha AI] Cart module still not loaded after waiting');
@@ -388,12 +607,10 @@ Just talk to me naturally!<br>
                 const items = await window.Cart.getCartItems();
                 context.cartItems = items || [];
                 console.log('[Eesha AI] Cart items fetched:', context.cartItems.length);
-                console.log('[Eesha AI] Cart items raw:', JSON.stringify(context.cartItems, null, 2));
             } else {
                 context.cartItems = [];
                 console.log('[Eesha AI] No user logged in - cart empty');
                 
-                // Try to get session directly from supabase as fallback
                 const client = window.supabaseClient || window.supabase;
                 if (client) {
                     const { data: { session } } = await client.auth.getSession();
@@ -407,58 +624,48 @@ Just talk to me naturally!<br>
     }
 
     async function sendMessage() {
-        const input = document.getElementById('ai-input');
+        const input = isFullPage ? document.getElementById('chatInput') : document.getElementById('ai-input');
         const text = input.value.trim();
         if ((!text && !selectedImage) || isLoading) return;
 
-        // DEBUG COMMAND - Type "debug" to see cart status
-        if (text.toLowerCase() === 'debug' || text.toLowerCase() === '/debug') {
+        // DEBUG COMMAND
+        if (text && (text.toLowerCase() === 'debug' || text.toLowerCase() === '/debug')) {
             addMessage('user', text);
             input.value = '';
             
-            let debugInfo = '🔧 **DEBUG INFO:**\n\n';
-            debugInfo += `• window.Cart: ${window.Cart ? '✅ Loaded' : '❌ NOT LOADED'}\n`;
-            debugInfo += `• window.supabase: ${window.supabase ? '✅ Loaded' : '❌ NOT LOADED'}\n`;
-            debugInfo += `• window.supabaseClient: ${window.supabaseClient ? '✅ Loaded' : '❌ NOT LOADED'}\n`;
+            let debugInfo = '**DEBUG INFO:**\n\n';
+            debugInfo += `window.Cart: ${window.Cart ? 'Loaded' : 'NOT LOADED'}\n`;
+            debugInfo += `window.supabase: ${window.supabase ? 'Loaded' : 'NOT LOADED'}\n`;
             
             if (window.Cart) {
                 try {
                     const user = await window.Cart.getCurrentUser();
                     debugInfo += `\n**Login Status:**\n`;
-                    debugInfo += `• Logged in: ${user ? '✅ YES' : '❌ NO'}\n`;
-                    if (user) {
-                        debugInfo += `• User ID: ${user.id}\n`;
-                    }
+                    debugInfo += `Logged in: ${user ? 'YES' : 'NO'}\n`;
+                    if (user) debugInfo += `User ID: ${user.id}\n`;
                     
                     const items = await window.Cart.getCartItems();
                     debugInfo += `\n**Cart Data:**\n`;
-                    debugInfo += `• Items count: ${items ? items.length : 0}\n`;
+                    debugInfo += `Items count: ${items ? items.length : 0}\n`;
                     if (items && items.length > 0) {
-                        debugInfo += `• Items:\n`;
+                        debugInfo += `Items:\n`;
                         items.forEach((item, i) => {
                             debugInfo += `  ${i+1}. ${item.products?.name || 'Unknown'} x${item.quantity}\n`;
                         });
                     }
-                    
-                    const count = await window.Cart.getCartCount();
-                    debugInfo += `• Cart count badge: ${count}\n`;
                 } catch (e) {
-                    debugInfo += `\n❌ Error: ${e.message}\n`;
+                    debugInfo += `\nError: ${e.message}\n`;
                 }
             }
             
-            // Check supabase directly
             const client = window.supabaseClient || window.supabase;
             if (client) {
                 try {
                     const { data: { session } } = await client.auth.getSession();
-                    debugInfo += `\n**Direct Supabase Check:**\n`;
-                    debugInfo += `• Has session: ${session ? '✅ YES' : '❌ NO'}\n`;
-                    if (session) {
-                        debugInfo += `• User ID: ${session.user?.id}\n`;
-                    }
+                    debugInfo += `\n**Supabase Session:** ${session ? 'YES' : 'NO'}\n`;
+                    if (session) debugInfo += `User ID: ${session.user?.id}\n`;
                 } catch (e) {
-                    debugInfo += `\n❌ Supabase error: ${e.message}\n`;
+                    debugInfo += `\nSupabase error: ${e.message}\n`;
                 }
             }
             
@@ -466,11 +673,8 @@ Just talk to me naturally!<br>
             return;
         }
 
-        // Store image before clearing
         const imageToSend = selectedImage;
-        
-        // Show user message with image if provided (handle image-only messages)
-        const displayText = text || '📷 Shared an image';
+        const displayText = text || 'Shared an image';
         addMessage('user', displayText, { image: imageToSend });
         input.value = '';
         removeSelectedImage();
@@ -492,32 +696,43 @@ Just talk to me naturally!<br>
                 })),
                 cartTotal: context.cartItems.reduce((s, i) => s + ((i.products?.price || i.price || 0) * (i.quantity || 1)), 0),
                 isLoggedIn: !!context.user,
-                // Add conversation history for memory
-                conversationHistory: conversationHistory.slice(-10) // Last 10 messages
+                conversationHistory: conversationHistory.slice(-10)
             };
 
-            // Add image if selected (for VLM)
             if (imageToSend) {
                 contextForAI.image = imageToSend;
             }
 
-            // Call HuggingFace Space AI
+            // Update typing status after 10s
+            let statusTimer;
+            if (isFullPage) {
+                statusTimer = setTimeout(() => {
+                    fullPage_updateTypingText('Thinking hard, please wait...');
+                }, 10000);
+            }
+
+            // Call HuggingFace Space AI (180s timeout for free tier)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+
             const response = await fetch(CONFIG.apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, context: contextForAI })
+                body: JSON.stringify({ message: text, context: contextForAI }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+            if (statusTimer) clearTimeout(statusTimer);
+
             const data = await response.json();
-            if (CONFIG.debug) console.log('HF Space AI response:', data);
+            if (CONFIG.debug) console.log('[Eesha AI] Response:', data);
 
             removeLoading();
 
             if (data.success) {
-                // Store in conversation history
                 conversationHistory.push({ role: 'user', content: text });
                 conversationHistory.push({ role: 'assistant', content: data.response });
                 
-                // Keep only last 20 messages (10 exchanges)
                 if (conversationHistory.length > 20) {
                     conversationHistory = conversationHistory.slice(-20);
                 }
@@ -536,9 +751,14 @@ Just talk to me naturally!<br>
                 addMessage('assistant', data.response || 'Sorry, an error occurred.');
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('[Eesha AI] Error:', error);
             removeLoading();
-            addMessage('assistant', 'Connection error. Please try again.');
+            
+            let errorMsg = "Connection error. Please try again.";
+            if (error.name === 'AbortError') {
+                errorMsg = "The AI assistant took too long to respond. The server might be busy — please try again.";
+            }
+            addMessage('assistant', errorMsg);
         }
 
         isLoading = false;
@@ -557,7 +777,6 @@ Just talk to me naturally!<br>
             let toAdd = [];
             const qty = action.quantity || 1;
 
-            // AI can specify product_id directly
             if (action.product_id) {
                 const p = context.lastShownProducts.find(p => p.id === action.product_id);
                 if (p) toAdd = [p];
@@ -587,16 +806,15 @@ Just talk to me naturally!<br>
 
             return {
                 success: true,
-                message: `✅ Added ${added} item(s) to cart${qty > 1 ? ` (${qty}x each)` : ''} - Total: ₦${total.toLocaleString()}`
+                message: `Added ${added} item(s) to cart${qty > 1 ? ` (${qty}x each)` : ''} - Total: ₦${total.toLocaleString()}`
             };
         }
 
         if (type === 'remove_from_cart') {
             if (action.product_id) {
-                // Remove specific product
                 const result = await Cart.removeFromCart(action.product_id);
                 if (result.success) {
-                    return { success: true, message: '✅ Item removed from cart!' };
+                    return { success: true, message: 'Item removed from cart!' };
                 }
                 return { success: false, message: 'Could not remove item.' };
             }
@@ -604,21 +822,17 @@ Just talk to me naturally!<br>
         }
 
         if (type === 'view_cart') {
-            console.log('[Eesha AI] view_cart action - fetching items...');
             const items = await Cart.getCartItems();
-            console.log('[Eesha AI] view_cart items:', items?.length || 0, items);
             
             if (!items || !items.length) {
-                // Check if user is logged in first
                 const user = await Cart.getCurrentUser();
-                console.log('[Eesha AI] view_cart - user check:', user ? user.id : 'not logged in');
                 if (!user) {
                     return { success: false, requiresAuth: true, message: 'Please login to view your cart.' };
                 }
                 return { success: true, message: 'Your cart is empty. Would you like to browse some products?' };
             }
             
-            let cartDetails = '🛒 Your Cart:\n';
+            let cartDetails = 'Your Cart:\n';
             let total = 0;
             items.forEach((item, i) => {
                 const name = item.products?.name || 'Unknown';
@@ -634,7 +848,7 @@ Just talk to me naturally!<br>
         }
 
         if (type === 'checkout') {
-            window.location.href = '/Eesha buying folder/checkout.html';
+            window.location.href = 'Eesha buying folder/checkout.html';
             return { success: true, message: 'Redirecting to checkout...' };
         }
 
@@ -644,14 +858,54 @@ Just talk to me naturally!<br>
     async function clearConversation() {
         conversationHistory = [];
         context.lastShownProducts = [];
-        document.getElementById('ai-messages').innerHTML = '';
-        document.getElementById('ai-quick-actions').style.display = 'block';
-        showWelcomeMessage();
+
+        if (isFullPage) {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+
+            // Re-add welcome message
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'flex items-start gap-2.5 mb-4 mt-4 animate-fade-in';
+            welcomeDiv.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <i class="fas fa-robot text-white text-xs"></i>
+                </div>
+                <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-700 leading-relaxed">Hi! I'm your <strong class="text-orange-500">EeshaMart AI Assistant</strong>. I can help you find products, compare prices, track deals, and more! What are you looking for today?</p>
+                    <p class="text-[10px] text-gray-400 mt-1.5">Just now</p>
+                </div>`;
+            chatContainer.appendChild(welcomeDiv);
+
+            // Re-add suggestion chips
+            const chipsDiv = document.createElement('div');
+            chipsDiv.id = 'suggestionChips';
+            chipsDiv.className = 'flex flex-wrap gap-2 mb-4 ml-10';
+            chipsDiv.innerHTML = `
+                <button onclick="sendSuggestion('Show me phones under ₦50,000')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-mobile-alt text-orange-400"></i> Phones under ₦50k
+                </button>
+                <button onclick="sendSuggestion('Best deals today')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-bolt text-orange-400"></i> Best deals today
+                </button>
+                <button onclick="sendSuggestion('Farm fresh produce')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-leaf text-orange-400"></i> Farm fresh produce
+                </button>
+                <button onclick="sendSuggestion('Electronics')" class="chip inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:text-orange-600 shadow-sm">
+                    <i class="fas fa-laptop text-orange-400"></i> Electronics
+                </button>`;
+            chatContainer.appendChild(chipsDiv);
+        } else {
+            document.getElementById('ai-messages').innerHTML = '';
+            document.getElementById('ai-quick-actions').style.display = 'block';
+            showWelcomeMessage();
+        }
     }
 
+    // Expose globally
     window.EeshaAI = {
         open: toggleWidget,
         close: () => { if (isOpen) toggleWidget(); },
         clearHistory: clearConversation
     };
+    window.sendMessage = sendMessage;
 })();

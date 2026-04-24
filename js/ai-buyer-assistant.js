@@ -78,6 +78,9 @@
             removeBtn.addEventListener('click', removeSelectedImage);
         }
 
+        // Make sendMessage available globally (needed by onclick/onkeypress in HTML)
+        window.sendMessage = sendMessage;
+
         // Make sendSuggestion available globally
         window.sendSuggestion = function(text) {
             document.getElementById('chatInput').value = text;

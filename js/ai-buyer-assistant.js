@@ -545,6 +545,7 @@ Just talk to me naturally!<br>
 
     function handleFileSelect(e) {
         const file = e.target.files[0];
+        console.log('[Eesha AI] File selected:', file?.name, file?.type, file?.size);
         if (!file?.type.startsWith('image/')) return;
         const reader = new FileReader();
         reader.onload = ev => {
@@ -678,6 +679,7 @@ Just talk to me naturally!<br>
 
         const imageToSend = selectedImage;
         const displayText = text || 'Shared an image';
+        console.log('[Eesha AI] sendMessage called. Has image:', !!imageToSend, 'Text:', displayText);
         addMessage('user', displayText, { image: imageToSend });
         input.value = '';
         removeSelectedImage();
@@ -704,6 +706,7 @@ Just talk to me naturally!<br>
 
             if (imageToSend) {
                 contextForAI.image = imageToSend;
+                console.log('[Eesha AI] Image included in request. Base64 length:', imageToSend.length);
             }
 
             // Update typing status after 10s

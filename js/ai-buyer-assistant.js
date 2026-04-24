@@ -748,9 +748,9 @@ Just talk to me naturally!<br>
                 }, 10000);
             }
 
-            // Build message text — always mention image so AI knows even if BLIP fails
+            // Build message text — tell AI this is a product they should search for
             const messageForAI = imageToSend
-                ? `[User attached an image] ${text || 'What is in this image?'}`
+                ? `[User sent a product image] ${text || 'Find me this product or similar ones'}`
                 : text;
 
             // Call HuggingFace Space AI (180s timeout for free tier)

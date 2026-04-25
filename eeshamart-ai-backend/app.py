@@ -1,6 +1,6 @@
-# EeshaMart AI - Pure Natural Language Understanding
-# NO keywords, NO pattern matching - AI understands intent naturally
-# Supports: conversation memory, budget planning, image understanding
+# EeshaMart AI - Smart Conversational AI
+# Fully dynamic - NO hardcoded intents, NO pattern matching
+# Real conversation memory, image understanding, smart shopping
 
 import httpx
 from fastapi import FastAPI
@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BlipProcessor, Bli
 import torch
 from PIL import Image
 
-app = FastAPI(title="EeshaMart AI - Natural Understanding")
+app = FastAPI(title="EeshaMart AI - Smart Conversational")
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,7 +55,7 @@ async def load():
     vision_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
     vision_model.eval()
     
-    print("✅ All models loaded - Pure natural language AI ready!")
+    print("All models loaded - Smart AI ready!")
 
 def analyze_image(base64_image: str) -> str:
     """Analyze an image using BLIP and return description"""
@@ -82,18 +82,19 @@ def analyze_image(base64_image: str) -> str:
         return "an image"
 
 async def db_search(query: str, max_price: int = None) -> List[Dict]:
-    """Search products in database - more flexible search"""
+    """Search products in database"""
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # Clean and split query
             terms = query.lower().replace("-", " ").split()
-            # Filter out common words that don't help search
-            stop_words = ["the", "a", "an", "is", "are", "was", "were", "be", "been", "being", 
+            stop_words = {"the", "a", "an", "is", "are", "was", "were", "be", "been", "being", 
                          "have", "has", "had", "do", "does", "did", "will", "would", "could",
                          "should", "may", "might", "must", "shall", "can", "need", "dare",
                          "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
                          "from", "up", "about", "into", "over", "after", "show", "me", "find",
-                         "search", "looking", "want", "please", "can", "you", "get", "i"]
+                         "search", "looking", "want", "please", "you", "get", "i", "this",
+                         "that", "it", "and", "or", "but", "not", "no", "yes", "what", "how",
+                         "why", "when", "where", "which", "who", "some", "any", "all", "each",
+                         "more", "also", "very", "much", "many", "too", "just", "only"}
             
             search_terms = [t for t in terms if t not in stop_words and len(t) > 1]
             
@@ -132,122 +133,132 @@ async def db_get_all_products() -> List[Dict]:
         print(f"Get all products error: {e}")
         return []
 
-async def ai_understand(message: str, cart_items: List, shown_products: List, 
-                        conversation_history: List, all_products: List,
-                        image_description: str = None) -> Dict:
+async def ai_chat(message: str, cart_items: List, shown_products: List, 
+                   conversation_history: List, all_products: List,
+                   image_description: str = None) -> Dict:
     """
-    AI understands user intent naturally without keywords or pattern matching.
-    Returns the AI's response AND the detected intent.
+    Fully dynamic AI - understands intent naturally from conversation context.
+    Uses real conversation history as chat turns (not just system prompt text).
     """
     global chat_model, chat_tokenizer
     
     if not chat_model:
         return {"reply": "AI is loading... please wait.", "intent": None}
     
-    # Build cart context
-    cart_text = ""
+    # Build dynamic context that changes based on what's relevant
+    context_sections = []
+    
+    # Cart context - show quantity totals properly
     if cart_items and len(cart_items) > 0:
-        cart_text = f"\n[USER'S CART - {len(cart_items)} items:]\n"
-        total = 0
+        total_qty = sum(item.get("quantity", 1) or 1 for item in cart_items)
+        total_cost = sum((item.get("price") or 0) * (item.get("quantity", 1) or 1) for item in cart_items)
+        cart_lines = []
         for i, item in enumerate(cart_items, 1):
             name = item.get("product_name") or "Item"
             price = item.get("price") or 0
             qty = item.get("quantity", 1) or 1
-            total += price * qty
-            cart_text += f"{i}. {name} x{qty} = ₦{price*qty:,}\n"
-        cart_text += f"CART TOTAL: ₦{total:,}\n"
-    else:
-        cart_text = "\n[USER'S CART is EMPTY]\n"
+            cart_lines.append(f"  {i}. {name} x{qty} = N{price*qty:,}")
+        cart_text = "\n".join(cart_lines)
+        context_sections.append(
+            f"[CURRENT CART - {total_qty} total products ({len(cart_items)} different types), total value N{total_cost:,}:]\n{cart_text}"
+        )
     
-    # Build recently shown products context
-    products_text = ""
+    # Recently shown products
     if shown_products and len(shown_products) > 0:
-        products_text = "\n[PRODUCTS YOU JUST SHOWED THE USER:]\n"
+        prod_lines = []
         for i, p in enumerate(shown_products, 1):
-            products_text += f"{i}. {p.get('name', 'Product')} - ₦{p.get('price', 0):,} (ID: {p.get('id')})\n"
-        products_text += "[If user wants to add/choose a product, use these numbers]\n"
-
-    # Build available products list
-    available_text = ""
-    if all_products:
-        available_text = "\n[SAMPLE PRODUCTS IN STORE (name - price - category):]\n"
-        for p in all_products[:30]:  # Show first 30
-            available_text += f"- {p.get('name')} - ₦{p.get('price', 0):,} - {p.get('category', 'General')}\n"
-
-    # Build conversation history
-    history_text = ""
-    if conversation_history and len(conversation_history) > 0:
-        history_text = "\n[RECENT CONVERSATION:]\n"
-        for msg in conversation_history[-6:]:
-            role = "User" if msg.get("role") == "user" else "Eesha"
-            history_text += f"{role}: {msg.get('content', '')[:200]}\n"
-        history_text += "\n"
-
+            prod_lines.append(f"  {i}. {p.get('name', 'Product')} - N{p.get('price', 0):,} (ID: {p.get('id')})")
+        context_sections.append(
+            f"[RECENTLY SHOWN PRODUCTS - User can pick by number:]\n" + "\n".join(prod_lines)
+        )
+    
     # Image context
-    image_text = ""
     if image_description:
-        image_text = f"""
-[USER SHARED AN IMAGE - You can see: {image_description}]
-Acknowledge what you see in the image and offer to help find similar products.
-[/END IMAGE]
-"""
+        context_sections.append(
+            f"[USER SHARED AN IMAGE: {image_description}]"
+        )
+    
+    # Build the full context block
+    context_block = ""
+    if context_sections:
+        context_block = "\n\n" + "\n\n".join(context_sections)
+    
+    # Available products (compact)
+    available_block = ""
+    if all_products:
+        avail_lines = [f"- {p.get('name')} (N{p.get('price',0):,}, {p.get('category','General')})" for p in all_products[:25]]
+        available_block = "\n\n[AVAILABLE PRODUCTS IN STORE:]\n" + "\n".join(avail_lines)
+    
+    # Build system prompt - smart and flexible, not rigid
+    system = f"""You are Eesha, the friendly AI assistant for EeshaMart, a Nigerian online store. You are naturally smart and handle conversations intelligently - you understand context, remember what was discussed, and respond appropriately.
 
-    system = f"""You are Eesha, a friendly AI assistant for EeshaMart Nigeria online store.
+You can talk about ANYTHING - shopping, general knowledge, jokes, advice, recommendations, comparisons, calculations, and more. Be warm, helpful, and conversational. Use Nigerian Naira (N) for prices.
 
-{cart_text}{products_text}{available_text}{history_text}{image_text}
+When the user wants to shop:
+- Search for products they ask about
+- Help them compare options
+- Add items to their cart when they clearly want to buy
+- Show cart contents and totals accurately
+- Suggest alternatives if what they want isn't found
 
-You are a NATURAL conversational AI. You can discuss ANY topic - not just shopping!
-- Answer questions about politics, science, geography, jokes, anything
-- Be friendly, helpful, and conversational
-- Only talk about shopping when the user CLEARLY wants to shop
+IMPORTANT RULES:
+- Always count TOTAL products (sum of quantities), not just different types
+- If user says "how many items in my cart" and there are ChatGPT x2, Grok x3, Gemini x5, answer is 10 total products (3 different types)
+- If user sends a product image, IMMEDIATELY search for matching or similar products - do NOT ask clarifying questions first
+- If user says "that one" or "the first one" or "number 3", refer to the recently shown products list
+- If user asks to remove something, decrease quantity or remove from cart
+- Respect negatives: "don't show me phones" means NO phones, "I don't want that" means do NOT add it
 
-CRITICAL: Understand what the user ACTUALLY means, not just keywords!
+RESPOND AS JSON: {{"reply": "your response text", "intent": {{"type": "...", ...}}}}
 
-SHOPPING - Only when user clearly wants to shop:
-- User wants to find products: They ask to see, find, search, or browse products
-- User wants to add to cart: They clearly say "add to cart", "I want this", "buy this"
-- User wants to see cart: They ask "what's in my cart", "show my cart", "my cart"
-- User wants to checkout: They say "checkout", "pay", "complete order"
+Intent types (only set when user clearly wants to take an action):
+- search: {{"type": "search", "query": "what to search for", "max_price": optional_number}}
+- add_to_cart: {{"type": "add_to_cart", "product_number": N}}
+- remove_from_cart: {{"type": "remove_from_cart", "product_number": N}}
+- view_cart: {{"type": "view_cart"}}
+- clear_cart: {{"type": "clear_cart"}}
+- checkout: {{"type": "checkout"}}
+- null or omitted: when just chatting, no action needed
 
-BE CAREFUL: 
-- "I don't want to add this" → They do NOT want to add (respect their choice!)
-- "Don't show me phones" → They do NOT want phones
-- "What's the price of..." → They're asking a question, not necessarily buying
-- "Can I see..." → They want to see/view, not buy yet
+Only set intent when user is clearly requesting an action. For general questions, comparisons, or casual chat, set intent to null.{context_block}{available_block}"""
 
-Respond naturally as JSON with this format:
-{{"reply": "your natural response", "intent": {{"type": "...", "data": "..."}}}}
-
-Possible intents:
-- {{"type": "search", "query": "product name", "max_price": 50000}} - User wants to find products
-- {{"type": "add_to_cart", "product_number": 1}} - User wants to add a product (use number from shown products)
-- {{"type": "view_cart"}} - User wants to see their cart
-- {{"type": "checkout"}} - User wants to checkout
-- {{"type": "chat"}} - Normal conversation (no shopping action)
-- null - No specific action needed
-
-REMEMBER: If no products have been shown yet, you cannot add to cart!
-REMEMBER: Only use product numbers from the [PRODUCTS YOU JUST SHOWED THE USER] list!
-
-The user says: "{message}"
-
-Respond naturally as JSON:"""
-
+    # Build messages with REAL conversation history as chat turns
+    messages = [{"role": "system", "content": system}]
+    
+    # Add conversation history as actual user/assistant turns
+    if conversation_history and len(conversation_history) > 0:
+        # Use up to last 10 messages (5 turns) to keep context window manageable
+        recent = conversation_history[-10:]
+        for msg in recent:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if content and role in ("user", "assistant"):
+                # Clean content - strip any JSON artifacts from AI responses
+                if role == "assistant":
+                    # AI responses from history may have JSON, extract just the reply text
+                    if content.strip().startswith("{"):
+                        try:
+                            parsed = json.loads(content)
+                            content = parsed.get("reply", content)
+                        except:
+                            pass
+                messages.append({"role": role, "content": content})
+    
+    # Add the current user message
+    messages.append({"role": "user", "content": message})
+    
     try:
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": message}
-        ]
-        
+        # Apply chat template with full history
         text = chat_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = chat_tokenizer(text, return_tensors="pt", truncation=True, max_length=2048)
+        inputs = chat_tokenizer(text, return_tensors="pt", truncation=True, max_length=3072)
         
         with torch.no_grad():
             out = chat_model.generate(
                 inputs["input_ids"],
-                max_new_tokens=300,
+                max_new_tokens=512,
                 temperature=0.7,
                 do_sample=True,
+                top_p=0.9,
                 pad_token_id=chat_tokenizer.eos_token_id
             )
         
@@ -256,18 +267,19 @@ Respond naturally as JSON:"""
         
         # Parse JSON response
         try:
-            # Find JSON in response
             json_start = response.find('{')
             json_end = response.rfind('}') + 1
             if json_start != -1 and json_end > json_start:
                 json_str = response[json_start:json_end]
                 result = json.loads(json_str)
+                # Ensure reply exists
+                if "reply" not in result:
+                    # Maybe the whole thing is the reply
+                    result = {"reply": response, "intent": None}
                 return result
             else:
-                # No JSON found, treat as plain text
                 return {"reply": response, "intent": None}
         except json.JSONDecodeError:
-            # Failed to parse JSON, use response as-is
             return {"reply": response, "intent": None}
         
     except Exception as e:
@@ -278,13 +290,13 @@ Respond naturally as JSON:"""
 async def root():
     return {
         "online": True, 
-        "ai": "EeshaMart Natural AI", 
-        "features": ["natural_understanding", "no_keywords", "vision", "memory"]
+        "ai": "EeshaMart Smart AI", 
+        "features": ["conversation_memory", "dynamic_intent", "vision", "smart_cart"]
     }
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "vision": True, "mode": "natural"}
+    return {"ok": True, "vision": True, "mode": "smart"}
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
@@ -309,8 +321,8 @@ async def chat(req: ChatRequest):
     # Get all available products for reference
     all_products = await db_get_all_products()
     
-    # AI understands the message naturally
-    ai = await ai_understand(
+    # AI processes message with full context and real conversation history
+    ai = await ai_chat(
         req.message, 
         cart_items, 
         shown_products, 
@@ -341,7 +353,7 @@ async def chat(req: ChatRequest):
             # If we have an image description, enhance search
             if image_description and image_description != "an image":
                 desc_words = image_description.lower().split()
-                for word in desc_words[:3]:  # Use first 3 words
+                for word in desc_words[:4]:
                     if len(word) > 2 and word not in query.lower():
                         query += f" {word}"
             
@@ -349,7 +361,7 @@ async def chat(req: ChatRequest):
             result["products"] = products
             
             if not products:
-                result["response"] = f"I searched for '{query}' but couldn't find any products. Would you like to try different keywords?"
+                result["response"] = ai.get("reply", f"I searched for '{query}' but couldn't find any products. Would you like to try different keywords?")
             else:
                 result["response"] = ai.get("reply", f"I found {len(products)} products for you!")
         
@@ -361,11 +373,21 @@ async def chat(req: ChatRequest):
                 "quantity": 1
             }
         
+        elif intent_type == "remove_from_cart":
+            product_number = intent.get("product_number", 1)
+            result["action"] = {
+                "type": "remove_from_cart",
+                "product_index": product_number
+            }
+        
         elif intent_type == "view_cart":
             result["action"] = {"type": "view_cart"}
             if not is_logged_in:
-                result["response"] = "Please login to view your cart."
+                result["response"] = ai.get("reply", "Please login to view your cart.")
                 result["action"] = {"type": "login_required"}
+        
+        elif intent_type == "clear_cart":
+            result["action"] = {"type": "clear_cart"}
         
         elif intent_type == "checkout":
             result["action"] = {"type": "checkout"}

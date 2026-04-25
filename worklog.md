@@ -18,3 +18,25 @@ Stage Summary:
 - Fix: Added window.sendMessage = sendMessage; to initFullPage()
 - Backend was already correctly configured for image processing
 - Frontend fix pushed to GitHub: commit 7b5efb0
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix AI hardcoded behavior and conversation memory in HuggingFace Space
+
+Work Log:
+- Read and analyzed all 3 app.py files (eeshamart-ai-space, eeshamart-ai-backend, telegram-bot)
+- Identified root causes: conversation history was only text in system prompt (not real chat turns), rigid intent system, cart counted rows not quantities, low token budget
+- Rewrote HF Space app.py with: real conversation memory as chat turns, smarter dynamic prompt, expanded intents (remove_from_cart, clear_cart), fixed cart counting, increased tokens (3072/512), auto-search on images
+- Copied updated code to eeshamart-ai-backend for local backup
+- Uploaded to HuggingFace Space via hf upload CLI
+
+Stage Summary:
+- Key fix 1: Conversation history now sent as actual user/assistant message turns in Qwen chat template, not just pasted as text in system prompt
+- Key fix 2: System prompt is now flexible and dynamic - AI decides actions naturally instead of following rigid rules
+- Key fix 3: Cart shows total quantity (sum) not row count: "10 total products (3 different types)"
+- Key fix 4: Added remove_from_cart and clear_cart intents for more flexibility
+- Key fix 5: max_new_tokens increased from 300 to 512, max_length from 2048 to 3072
+- Key fix 6: Image prompt auto-searches without asking clarifying questions
+- Both website and Telegram bot will get the update automatically since they share the same HF Space backend
+- Upload confirmed at: https://huggingface.co/spaces/fuhaddesmond/eeshamart-ai/commit/79ec37b66cc774149d5446bfb35d51b23f596bdc

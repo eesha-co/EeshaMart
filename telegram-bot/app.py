@@ -246,7 +246,7 @@ async def chat_with_ai(message: str, chat_id: int, image_base64: str = None) -> 
         payload["context"]["image"] = image_base64
     
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(AI_BACKEND_URL, json=payload)
             if response.status_code == 200:
                 return response.json()
@@ -449,7 +449,8 @@ _What's on your mind?_"""
         user_sessions[chat_id]["cart_items"] = cart
         
         if cart:
-            response = "🛒 *Your Cart:*\n\n"
+            total_qty = sum(item.get("quantity", 1) or 1 for item in cart)
+            response = f"🛒 *Your Cart ({total_qty} items):*\n\n"
             total = 0
             for i, item in enumerate(cart, 1):
                 p = item.get("products", {})
@@ -547,7 +548,8 @@ Visit eeshamart.com to complete payment!"""
             user_sessions[chat_id]["cart_items"] = cart
             
             if cart:
-                cart_msg = "🛒 *Your Cart:*\n\n"
+                total_qty = sum(item.get("quantity", 1) or 1 for item in cart)
+                cart_msg = f"🛒 *Your Cart ({total_qty} items):*\n\n"
                 total = 0
                 for i, item in enumerate(cart, 1):
                     p = item.get("products", {})
@@ -634,12 +636,47 @@ async def telegram_webhook(request: Request):
             if text or image_base64:
                 await send_typing_action(chat_id)
                 
+                # Compress image to max 512px before sending to AI
+                compressed_image = None
+                if image_base64:
+                    try:
+                        import io
+                        from PIL import Image as PILImage
+                        # Strip data URI prefix
+                        img_data = image_base64
+                        if "," in img_data:
+                            img_data = img_data.split(",")[1]
+                        img_bytes = base64.b64decode(img_data)
+                        img = PILImage.open(io.BytesIO(img_bytes)).convert("RGB")
+                        MAX = 512
+                        w, h = img.size
+                        if w > MAX or h > MAX:
+                            if w > h:
+                                h = round(h * MAX / w); w = MAX
+                            else:
+                                w = round(w * MAX / h); h = MAX
+                            img = img.resize((w, h))
+                        buf = io.BytesIO()
+                        img.save(buf, format="JPEG", quality=70)
+                        compressed_image = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
+                        logger.info(f"🖼️ Image compressed: {len(image_base64)} -> {len(compressed_image)} chars")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Image compression failed, using original: {e}")
+                        compressed_image = image_base64
+                
+                # Tag image messages so AI knows to search
+                ai_text = text
+                if compressed_image and not text:
+                    ai_text = "[User sent a product image] Find me this product or similar ones"
+                elif compressed_image and text:
+                    ai_text = f"[User sent a product image] {text}"
+                
                 result = await process_message(
                     chat_id,
                     user_id,
-                    text if text else "What do you see in this image?",
+                    ai_text,
                     username,
-                    image_base64
+                    compressed_image
                 )
                 
                 # Handle both old string return and new dict return

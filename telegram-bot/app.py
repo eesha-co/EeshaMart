@@ -158,7 +158,7 @@ async def verify_supabase_auth(email: str, password: str) -> Optional[dict]:
 
 async def get_cart(user_id: str, access_token: str) -> List[dict]:
     """Get user's cart from Supabase using authenticated request"""
-    url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&select=id,quantity,product_id,products(id,name,price)"
+    url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&select=id,quantity,product_id,products(id,name,price,image_url,category)"
     # IMPORTANT: Use Authorization header with user's access token
     headers = {
         "apikey": SUPABASE_KEY,
@@ -404,6 +404,42 @@ async def send_products_with_images(chat_id: int, products: List[dict], intro_te
         await send_telegram(chat_id, f"\n_Reply with a number (1-{len(products_to_show)}) to add to cart!_"),
 
 
+async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
+    """Send cart items with their product images to Telegram"""
+    if not cart_items:
+        await send_telegram(chat_id, "🛒 Your cart is empty. Tell me what you're looking for!")
+        return False
+    
+    total_qty = sum(item.get("quantity", 1) or 1 for item in cart_items)
+    total = sum((item.get("products", {}) or {}).get("price", 0) * (item.get("quantity", 1) or 1) for item in cart_items)
+    
+    # Send header
+    await send_telegram(chat_id, f"🛒 *Your Cart ({total_qty} items):*")
+    
+    # Send each cart item with its product image
+    for i, item in enumerate(cart_items, 1):
+        p = item.get("products", {}) or {}
+        name = p.get("name", "Item")
+        price = p.get("price", 0)
+        qty = item.get("quantity", 1)
+        image_url = p.get("image_url") or p.get("image") or p.get("imageUrl")
+        
+        caption = f"*{i}. {name}* x{qty}\n💰 ₦{price * qty:,}"
+        
+        if image_url:
+            success = await send_product_photo(chat_id, image_url, caption)
+            if not success:
+                await send_telegram(chat_id, caption)
+        else:
+            await send_telegram(chat_id, caption)
+        
+        await asyncio.sleep(0.3)
+    
+    # Send total
+    await send_telegram(chat_id, f"\n💰 *Total: ₦{total:,}*\n\n_checkout_ to complete your order!")
+    return True
+
+
 async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_base64: str = None) -> str:
     """Process incoming message with full AI capabilities"""
     logger.info(f"📩 From {chat_id}: {text[:50] if text else 'image'}...")
@@ -514,18 +550,7 @@ _What's on your mind?_"""
         user_sessions[chat_id]["cart_items"] = cart
         
         if cart:
-            total_qty = sum(item.get("quantity", 1) or 1 for item in cart)
-            response = f"🛒 *Your Cart ({total_qty} items):*\n\n"
-            total = 0
-            for i, item in enumerate(cart, 1):
-                p = item.get("products", {})
-                name = p.get("name", "Item")
-                price = p.get("price", 0)
-                qty = item.get("quantity", 1)
-                total += price * qty
-                response += f"{i}. *{name}* x{qty} = ₦{price*qty:,}\n"
-            response += f"\n💰 *Total: ₦{total:,}*\n\n_checkout_ to complete your order!"
-            return response
+            return {"send_cart_images": True, "cart_items": cart}
         return "🛒 Your cart is empty. Tell me what you're looking for!"
     
     if text_lower in ['checkout', '/checkout']:
@@ -613,20 +638,16 @@ Visit eeshamart.com to complete payment!"""
             user_sessions[chat_id]["cart_items"] = cart
             
             if cart:
-                total_qty = sum(item.get("quantity", 1) or 1 for item in cart)
-                cart_msg = f"🛒 *Your Cart ({total_qty} items):*\n\n"
-                total = 0
-                for i, item in enumerate(cart, 1):
-                    p = item.get("products", {})
-                    name = p.get("name", "Item")
-                    price = p.get("price", 0)
-                    qty = item.get("quantity", 1)
-                    total += price * qty
-                    cart_msg += f"{i}. *{name}* x{qty} = ₦{price*qty:,}\n"
-                cart_msg += f"\n💰 *Total: ₦{total:,}*"
-                response_text = cart_msg
+                response_text = ""  # Will be sent as images with send_cart_with_images
             else:
                 response_text = "🛒 Your cart is empty. Tell me what you're looking for!"
+            
+            # Return cart items so webhook can send them with images
+            return {
+                "response": response_text,
+                "products": None,
+                "cart_items": cart
+            }
         
         elif action_type == "checkout":
             response_text = """💳 *Ready for checkout!*
@@ -799,29 +820,45 @@ async def handle_telegram_message(body: dict):
             
             # Handle both old string return and new dict return
             if isinstance(result, dict):
-                response_text = result.get("response", "")
-                products = result.get("products")
+                # Check for /cart command with images
+                if result.get("send_cart_images"):
+                    cart_items = result.get("cart_items", [])
+                    if thinking_msg_id:
+                        await delete_message(chat_id, thinking_msg_id)
+                    await send_cart_with_images(chat_id, cart_items)
+                # Check for AI view_cart action with cart items
+                elif "cart_items" in result and result.get("cart_items"):
+                    if thinking_msg_id:
+                        await delete_message(chat_id, thinking_msg_id)
+                    await send_cart_with_images(chat_id, result["cart_items"])
+                    # Also send the AI response text if any
+                    if result.get("response"):
+                        await send_telegram(chat_id, result["response"])
+                else:
+                    response_text = result.get("response", "")
+                    products = result.get("products")
+                    
+                    # Store products in session if found
+                    if products and len(products) > 0:
+                        if chat_id not in user_sessions:
+                            user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
+                        user_sessions[chat_id]["last_products"] = products
+                    
+                    if thinking_msg_id:
+                        await delete_message(chat_id, thinking_msg_id)
+                    
+                    # Send response with product images if products found
+                    if products and len(products) > 0:
+                        await send_products_with_images(chat_id, products, response_text)
+                    elif products is not None and len(products) == 0:
+                        await send_telegram(chat_id, response_text + "\n\n❌ No products found. Try different keywords?")
+                    else:
+                        await send_telegram(chat_id, response_text)
             else:
+                # Old string response
                 response_text = result
-                products = None
-            
-            # Store products in session if found
-            if products and len(products) > 0:
-                if chat_id not in user_sessions:
-                    user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
-                user_sessions[chat_id]["last_products"] = products
-            
-            if thinking_msg_id:
-                await delete_message(chat_id, thinking_msg_id)
-            
-            # Send response with product images if products found
-            if products and len(products) > 0:
-                await send_products_with_images(chat_id, products, response_text)
-            elif products is not None and len(products) == 0:
-                # No products found
-                await send_telegram(chat_id, response_text + "\n\n❌ No products found. Try different keywords?")
-            else:
-                # No product search, just regular message
+                if thinking_msg_id:
+                    await delete_message(chat_id, thinking_msg_id)
                 await send_telegram(chat_id, response_text)
     except Exception as e:
         logger.error(f"❌ Error handling message: {e}")

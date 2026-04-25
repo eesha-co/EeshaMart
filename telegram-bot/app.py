@@ -56,7 +56,7 @@ async def send_typing_action(chat_id: int):
 async def send_thinking_message(chat_id: int) -> Optional[int]:
     """Send a 'thinking...' message visible in chat, returns message_id for deletion"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": "🤔 _Thinking..._", "parse_mode": "Markdown"}
+    payload = {"chat_id": chat_id, "text": "🤔 <i>Thinking...</i>", "parse_mode": "HTML"}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload)
@@ -79,9 +79,9 @@ async def delete_message(chat_id: int, message_id: int):
 
 
 async def send_telegram(chat_id: int, text: str):
-    """Send message via Telegram API"""
+    """Send message via Telegram API (HTML mode)"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     logger.info(f"📤 Sending to {chat_id}: {text[:50]}...")
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -92,59 +92,80 @@ async def send_telegram(chat_id: int, text: str):
         return {"ok": False, "error": str(e)}
 
 
+def escape_html(text: str) -> str:
+    """Escape special characters for Telegram HTML parse mode"""
+    return (str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;"))
+
+
 async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool:
     """Send product photo with caption via Telegram API.
-    Downloads the image first and uploads as binary — Telegram can't reliably
-    fetch images from Supabase storage URLs directly."""
-    logger.info(f"📸 Fetching image: {image_url[:80]}...")
+    Strategy: Download image bytes, upload to Telegram as multipart.
+    Fallback: Try passing URL directly if download fails."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     
-    # Step 1: Download the image (with Supabase auth header if it's a Supabase URL)
+    # ---- Strategy 1: Download + Upload as binary ----
     try:
         download_headers = {}
         if "supabase.co" in image_url:
             download_headers["apikey"] = SUPABASE_KEY
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=download_headers) as client:
-            img_response = await client.get(image_url)
-            if img_response.status_code != 200:
-                logger.error(f"❌ Failed to download image: {img_response.status_code}")
-                return False
+        
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=download_headers) as dl_client:
+            img_response = await dl_client.get(image_url)
+        
+        if img_response.status_code == 200 and len(img_response.content) > 100:
             image_bytes = img_response.content
-            logger.info(f"📸 Image downloaded: {len(image_bytes)} bytes")
+            content_type = img_response.headers.get("content-type", "image/jpeg")
+            
+            ext = "jpg"
+            if "png" in content_type:
+                ext = "png"
+            elif "webp" in content_type:
+                ext = "webp"
+            elif "gif" in content_type:
+                ext = "gif"
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                files = {"photo": (f"product.{ext}", image_bytes, content_type)}
+                data = {
+                    "chat_id": str(chat_id),
+                    "caption": caption,
+                    "parse_mode": "HTML"
+                }
+                response = await client.post(url, data=data, files=files)
+                logger.info(f"📸 Binary upload response: {response.status_code}")
+                if response.status_code == 200:
+                    logger.info(f"✅ Product photo sent (binary upload)")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Binary upload failed: {response.text[:200]}")
     except Exception as e:
-        logger.error(f"❌ Image download error: {e}")
-        return False
+        logger.warning(f"⚠️ Download/upload failed: {e}")
     
-    # Step 2: Determine file extension
-    content_type = img_response.headers.get("content-type", "")
-    ext = "jpg"
-    if "png" in content_type:
-        ext = "png"
-    elif "webp" in content_type:
-        ext = "webp"
-    elif "gif" in content_type:
-        ext = "gif"
-    
-    # Step 3: Upload to Telegram as multipart/form-data
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    # ---- Strategy 2: Pass URL directly to Telegram (fallback) ----
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"photo": (f"product.{ext}", image_bytes, content_type or "image/jpeg")}
-            data = {
-                "chat_id": str(chat_id),
+        logger.info(f"📸 Trying URL fallback: {image_url[:80]}...")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "chat_id": chat_id,
+                "photo": image_url,
                 "caption": caption,
-                "parse_mode": "Markdown"
+                "parse_mode": "HTML"
             }
-            response = await client.post(url, data=data, files=files)
-            logger.info(f"📸 Telegram photo response: {response.status_code}")
+            response = await client.post(url, json=payload)
+            logger.info(f"📸 URL fallback response: {response.status_code}")
             if response.status_code == 200:
-                logger.info(f"✅ Product photo sent successfully")
+                logger.info(f"✅ Product photo sent (URL fallback)")
                 return True
             else:
-                logger.error(f"Photo send error: {response.status_code} - {response.text[:200]}")
-                return False
+                logger.warning(f"⚠️ URL fallback failed: {response.text[:200]}")
     except Exception as e:
-        logger.error(f"❌ Photo upload error: {e}")
-        return False
+        logger.error(f"❌ URL fallback error: {e}")
+    
+    return False
 
 
 async def download_telegram_photo(file_id: str) -> Optional[bytes]:
@@ -356,33 +377,37 @@ async def chat_with_ai(message: str, chat_id: int, image_base64: str = None) -> 
 # ==================== MESSAGE PROCESSING ====================
 
 def format_product_caption(product: dict, index: int) -> str:
-    """Format a single product for photo caption"""
-    text = f"*{index}. {product.get('name', 'Product')}*\n\n"
+    """Format a single product for photo caption (HTML mode)"""
+    name = escape_html(product.get('name', 'Product'))
+    text = f"<b>{index}. {name}</b>\n\n"
     text += f"💰 Price: ₦{product.get('price', 0):,}\n"
     if product.get('category'):
-        text += f"📁 Category: {product['category']}\n"
+        cat = escape_html(product['category'])
+        text += f"📁 Category: {cat}\n"
     if product.get('description'):
-        desc = product['description'][:100]
-        if len(product['description']) > 100:
+        desc = escape_html(product['description'][:100])
+        if len(str(product.get('description', ''))) > 100:
             desc += "..."
         text += f"📝 {desc}\n"
-    text += f"\n_Reply '{index}' to add to cart!_"
+    text += f"\n<i>Reply '{index}' to add to cart!</i>"
     return text
 
 
 def format_products(products: List[dict]) -> str:
-    """Format products for display (used when no images available)"""
+    """Format products for display (used when no images available) - HTML mode"""
     if not products:
         return ""
     
-    text = f"\n\n🔍 *Found {len(products)} products:*\n\n"
+    text = f"\n\n🔍 <b>Found {len(products)} products:</b>\n\n"
     for i, p in enumerate(products, 1):
-        text += f"{i}. *{p.get('name', 'Product')}*\n"
+        name = escape_html(p.get('name', 'Product'))
+        text += f"{i}. <b>{name}</b>\n"
         text += f"   💰 ₦{p.get('price', 0):,}\n"
         if p.get('category'):
-            text += f"   📁 {p['category']}\n"
+            cat = escape_html(p['category'])
+            text += f"   📁 {cat}\n"
         text += "\n"
-    text += "_Reply with a number to add to cart!_"
+    text += "<i>Reply with a number to add to cart!</i>"
     return text
 
 
@@ -428,10 +453,10 @@ async def send_products_with_images(chat_id: int, products: List[dict], intro_te
     # Send summary if there are more products
     if len(products) > 5:
         remaining = len(products) - 5
-        summary = f"\n_...and {remaining} more products found._\n\n_Reply with a number (1-{len(products)}) to add to cart!_"
+        summary = f"\n<i>...and {remaining} more products found.</i>\n\n<i>Reply with a number (1-{len(products)}) to add to cart!</i>"
         await send_telegram(chat_id, summary)
     else:
-        await send_telegram(chat_id, f"\n_Reply with a number (1-{len(products_to_show)}) to add to cart!_"),
+        await send_telegram(chat_id, f"\n<i>Reply with a number (1-{len(products_to_show)}) to add to cart!</i>")
 
 
 async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
@@ -444,7 +469,7 @@ async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
     total = sum((item.get("products", {}) or {}).get("price", 0) * (item.get("quantity", 1) or 1) for item in cart_items)
     
     # Send header
-    await send_telegram(chat_id, f"🛒 *Your Cart ({total_qty} items):*")
+    await send_telegram(chat_id, f"🛒 <b>Your Cart ({total_qty} items):</b>")
     
     # Send each cart item with its product image
     for i, item in enumerate(cart_items, 1):
@@ -454,7 +479,7 @@ async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
         qty = item.get("quantity", 1)
         image_url = p.get("image_url") or p.get("image") or p.get("imageUrl")
         
-        caption = f"*{i}. {name}* x{qty}\n💰 ₦{price * qty:,}"
+        caption = f"<b>{i}. {escape_html(name)}</b> x{qty}\n💰 ₦{price * qty:,}"
         
         if image_url:
             success = await send_product_photo(chat_id, image_url, caption)
@@ -466,7 +491,7 @@ async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
         await asyncio.sleep(0.3)
     
     # Send total
-    await send_telegram(chat_id, f"\n💰 *Total: ₦{total:,}*\n\n_checkout_ to complete your order!")
+    await send_telegram(chat_id, f"\n💰 <b>Total: ₦{total:,}</b>\n\n<i>checkout</i> to complete your order!")
     return True
 
 
@@ -516,7 +541,7 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
                 cart = await get_cart(auth_result["user_id"], auth_result["access_token"])
                 user_sessions[chat_id]["cart_items"] = cart
                 
-                return f"""✅ *Welcome!*
+                return f"""✅ <b>Welcome!</b>
 
 🎉 Account linked!
 
@@ -526,7 +551,7 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
 • Understand photos you share
 • Manage your cart
 
-_What's on your mind?_"""
+<i>What's on your mind?</i>"""
             else:
                 del auth_sessions[chat_id]
                 return "❌ Login failed. Send /start to retry."
@@ -535,11 +560,11 @@ _What's on your mind?_"""
     
     if text_lower.startswith('/start'):
         if chat_id in linked_accounts:
-            return """✅ *Welcome Back!*
+            return """✅ <b>Welcome Back!</b>
 
 🤖 I'm Eesha! Chat with me about anything or send a photo to find products."""
         auth_sessions[chat_id] = {"state": AUTH_STATE_EMAIL}
-        return """👋 *Welcome to EeshaMart AI!*
+        return """👋 <b>Welcome to EeshaMart AI!</b>
 
 🔐 Enter your email to login:"""
     
@@ -556,13 +581,13 @@ _What's on your mind?_"""
         return "✅ Logged out. /start to login."
     
     if text_lower in ['/help', 'help']:
-        return """🆘 *Help*
+        return """🆘 <b>Help</b>
 
 /start - Login
 /cart - View cart
 /logout - Sign out
 
-🤖 *Natural AI Chat:*
+🤖 <b>Natural AI Chat:</b>
 • Ask me ANYTHING - politics, jokes, science!
 • "Show me phones under 50000"
 • "What's the capital of France?"
@@ -586,7 +611,7 @@ _What's on your mind?_"""
     if text_lower in ['checkout', '/checkout']:
         if chat_id not in linked_accounts:
             return "🔐 Login first. Send /start"
-        return """💳 *Checkout*
+        return """💳 <b>Checkout</b>
 
 Visit eeshamart.com to complete payment!"""
     
@@ -607,7 +632,7 @@ Visit eeshamart.com to complete payment!"""
             if success:
                 cart = await get_cart(account["user_id"], account["access_token"])
                 user_sessions[chat_id]["cart_items"] = cart
-                return f"✅ Added *{product['name']}* to cart!\n\n_Anything else?_"
+                return f"✅ Added <b>{escape_html(product['name'])}</b> to cart!\n\n<i>Anything else?</i>"
             else:
                 return "❌ Failed to add to cart. Please try again."
         elif products:
@@ -657,7 +682,7 @@ Visit eeshamart.com to complete payment!"""
                 if success:
                     cart = await get_cart(account["user_id"], account["access_token"])
                     user_sessions[chat_id]["cart_items"] = cart
-                    response_text = f"✅ Added *{product['name']}* to cart!"
+                    response_text = f"✅ Added <b>{escape_html(product['name'])}</b> to cart!"
                 else:
                     response_text = "❌ Failed to add. Try again."
             else:
@@ -680,7 +705,7 @@ Visit eeshamart.com to complete payment!"""
             }
         
         elif action_type == "checkout":
-            response_text = """💳 *Ready for checkout!*
+            response_text = """💳 <b>Ready for checkout!</b>
 
 Visit eeshamart.com to complete your order."""
         

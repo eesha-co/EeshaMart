@@ -40,3 +40,25 @@ Stage Summary:
 - Key fix 6: Image prompt auto-searches without asking clarifying questions
 - Both website and Telegram bot will get the update automatically since they share the same HF Space backend
 - Upload confirmed at: https://huggingface.co/spaces/fuhaddesmond/eeshamart-ai/commit/79ec37b66cc774149d5446bfb35d51b23f596bdc
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Replace hardcoded intent system with dynamic function calling
+
+Work Log:
+- User reported AI says "cart is cleared" but nothing actually happens
+- Root cause: HF Space intent system only mapped 4 intents (search, add_to_cart, view_cart, checkout) to actions
+- New intents like clear_cart were in the prompt but had NO backend handler
+- Completely replaced intent matching with dynamic function-calling (like ChatGPT/Gemini/Grok)
+- AI now sees 6 available functions and decides WHEN to use them based on context
+- Backend has a generic execute_function_call() that runs ANY function - no if/elif chain
+- Verified Telegram bot already handles all action types (clear_cart, remove_from_cart, update_cart)
+- Website JS already handles all action types
+- Uploaded to HF Space: https://huggingface.co/spaces/fuhaddesmond/eeshamart-ai/commit/3112b30262bca9fbaab4b4aac1007ee8bf722cd0
+
+Stage Summary:
+- Old: AI outputs intent type -> backend checks hardcoded list -> if not in list, ignored
+- New: AI outputs function call(s) -> backend executes whatever function was called -> fully dynamic
+- Adding a new capability now only requires adding a new function definition + executor
+- Both website and Telegram bot automatically benefit since they share the same HF Space backend

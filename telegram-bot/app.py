@@ -723,113 +723,130 @@ async def health():
     return {"status": "healthy"}
 
 
+async def handle_telegram_message(body: dict):
+    """Process a Telegram message update - runs in background to avoid webhook timeout"""
+    try:
+        if "message" not in body:
+            return
+        
+        message = body["message"]
+        chat_id = message.get("chat", {}).get("id")
+        user_id = message.get("from", {}).get("id")
+        username = message.get("from", {}).get("username", "")
+        text = message.get("text", "")
+        
+        # Show typing indicator AND thinking message in chat
+        await send_typing_action(chat_id)
+        thinking_msg_id = await send_thinking_message(chat_id)
+        
+        # Handle photo messages
+        image_base64 = None
+        if "photo" in message and message["photo"]:
+            photo = message["photo"][-1]
+            file_id = photo.get("file_id")
+            
+            await send_typing_action(chat_id)
+            
+            image_bytes = await download_telegram_photo(file_id)
+            if image_bytes:
+                image_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+        
+        if text or image_base64:
+            await send_typing_action(chat_id)
+            
+            # Compress image to max 512px before sending to AI
+            compressed_image = None
+            if image_base64:
+                try:
+                    import io
+                    from PIL import Image as PILImage
+                    # Strip data URI prefix
+                    img_data = image_base64
+                    if "," in img_data:
+                        img_data = img_data.split(",")[1]
+                    img_bytes = base64.b64decode(img_data)
+                    img = PILImage.open(io.BytesIO(img_bytes)).convert("RGB")
+                    MAX = 512
+                    w, h = img.size
+                    if w > MAX or h > MAX:
+                        if w > h:
+                            h = round(h * MAX / w); w = MAX
+                        else:
+                            w = round(w * MAX / h); h = MAX
+                        img = img.resize((w, h))
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=70)
+                    compressed_image = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
+                    logger.info(f"🖼️ Image compressed: {len(image_base64)} -> {len(compressed_image)} chars")
+                except Exception as e:
+                    logger.warning(f"⚠️ Image compression failed, using original: {e}")
+                    compressed_image = image_base64
+            
+            # Tag image messages so AI knows to search
+            ai_text = text
+            if compressed_image and not text:
+                ai_text = "[User sent a product image] Find me this product or similar ones"
+            elif compressed_image and text:
+                ai_text = f"[User sent a product image] {text}"
+            
+            result = await process_message(
+                chat_id,
+                user_id,
+                ai_text,
+                username,
+                compressed_image
+            )
+            
+            # Handle both old string return and new dict return
+            if isinstance(result, dict):
+                response_text = result.get("response", "")
+                products = result.get("products")
+            else:
+                response_text = result
+                products = None
+            
+            # Store products in session if found
+            if products and len(products) > 0:
+                if chat_id not in user_sessions:
+                    user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
+                user_sessions[chat_id]["last_products"] = products
+            
+            if thinking_msg_id:
+                await delete_message(chat_id, thinking_msg_id)
+            
+            # Send response with product images if products found
+            if products and len(products) > 0:
+                await send_products_with_images(chat_id, products, response_text)
+            elif products is not None and len(products) == 0:
+                # No products found
+                await send_telegram(chat_id, response_text + "\n\n❌ No products found. Try different keywords?")
+            else:
+                # No product search, just regular message
+                await send_telegram(chat_id, response_text)
+    except Exception as e:
+        logger.error(f"❌ Error handling message: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 @app.post("/webhook/telegram")
 async def telegram_webhook(request: Request):
+    """
+    Webhook endpoint - responds immediately to Telegram to avoid timeout retries.
+    Actual message processing happens in the background.
+    """
     try:
         body = await request.json()
         logger.info(f"📬 Webhook received")
         
-        if "message" in body:
-            message = body["message"]
-            chat_id = message.get("chat", {}).get("id")
-            user_id = message.get("from", {}).get("id")
-            username = message.get("from", {}).get("username", "")
-            text = message.get("text", "")
-            
-            # Show typing indicator AND thinking message in chat
-            await send_typing_action(chat_id)
-            thinking_msg_id = await send_thinking_message(chat_id)
-            
-            # Handle photo messages
-            image_base64 = None
-            if "photo" in message and message["photo"]:
-                photo = message["photo"][-1]
-                file_id = photo.get("file_id")
-                
-                await send_typing_action(chat_id)
-                
-                image_bytes = await download_telegram_photo(file_id)
-                if image_bytes:
-                    image_base64 = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}"
-            
-            if text or image_base64:
-                await send_typing_action(chat_id)
-                
-                # Compress image to max 512px before sending to AI
-                compressed_image = None
-                if image_base64:
-                    try:
-                        import io
-                        from PIL import Image as PILImage
-                        # Strip data URI prefix
-                        img_data = image_base64
-                        if "," in img_data:
-                            img_data = img_data.split(",")[1]
-                        img_bytes = base64.b64decode(img_data)
-                        img = PILImage.open(io.BytesIO(img_bytes)).convert("RGB")
-                        MAX = 512
-                        w, h = img.size
-                        if w > MAX or h > MAX:
-                            if w > h:
-                                h = round(h * MAX / w); w = MAX
-                            else:
-                                w = round(w * MAX / h); h = MAX
-                            img = img.resize((w, h))
-                        buf = io.BytesIO()
-                        img.save(buf, format="JPEG", quality=70)
-                        compressed_image = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
-                        logger.info(f"🖼️ Image compressed: {len(image_base64)} -> {len(compressed_image)} chars")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Image compression failed, using original: {e}")
-                        compressed_image = image_base64
-                
-                # Tag image messages so AI knows to search
-                ai_text = text
-                if compressed_image and not text:
-                    ai_text = "[User sent a product image] Find me this product or similar ones"
-                elif compressed_image and text:
-                    ai_text = f"[User sent a product image] {text}"
-                
-                result = await process_message(
-                    chat_id,
-                    user_id,
-                    ai_text,
-                    username,
-                    compressed_image
-                )
-                
-                # Handle both old string return and new dict return
-                if isinstance(result, dict):
-                    response_text = result.get("response", "")
-                    products = result.get("products")
-                else:
-                    response_text = result
-                    products = None
-                
-                # Store products in session if found
-                if products and len(products) > 0:
-                    if chat_id not in user_sessions:
-                        user_sessions[chat_id] = {"last_products": [], "history": [], "cart_items": []}
-                    user_sessions[chat_id]["last_products"] = products
-                
-                if thinking_msg_id:
-                    await delete_message(chat_id, thinking_msg_id)
-                
-                # Send response with product images if products found
-                if products and len(products) > 0:
-                    await send_products_with_images(chat_id, products, response_text)
-                elif products is not None and len(products) == 0:
-                    # No products found
-                    await send_telegram(chat_id, response_text + "\n\n❌ No products found. Try different keywords?")
-                else:
-                    # No product search, just regular message
-                    await send_telegram(chat_id, response_text)
+        # Process message in background - return OK immediately
+        # Telegram retries webhook if no response within 60 seconds
+        # AI inference takes ~56s + sending products, so we MUST respond fast
+        asyncio.create_task(handle_telegram_message(body))
         
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Webhook error: {e}")
         return {"status": "error", "message": str(e)}
 
 

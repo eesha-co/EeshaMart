@@ -93,27 +93,57 @@ async def send_telegram(chat_id: int, text: str):
 
 
 async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool:
-    """Send product photo with caption via Telegram API"""
+    """Send product photo with caption via Telegram API.
+    Downloads the image first and uploads as binary — Telegram can't reliably
+    fetch images from Supabase storage URLs directly."""
+    logger.info(f"📸 Fetching image: {image_url[:80]}...")
+    
+    # Step 1: Download the image (with Supabase auth header if it's a Supabase URL)
+    try:
+        download_headers = {}
+        if "supabase.co" in image_url:
+            download_headers["apikey"] = SUPABASE_KEY
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=download_headers) as client:
+            img_response = await client.get(image_url)
+            if img_response.status_code != 200:
+                logger.error(f"❌ Failed to download image: {img_response.status_code}")
+                return False
+            image_bytes = img_response.content
+            logger.info(f"📸 Image downloaded: {len(image_bytes)} bytes")
+    except Exception as e:
+        logger.error(f"❌ Image download error: {e}")
+        return False
+    
+    # Step 2: Determine file extension
+    content_type = img_response.headers.get("content-type", "")
+    ext = "jpg"
+    if "png" in content_type:
+        ext = "png"
+    elif "webp" in content_type:
+        ext = "webp"
+    elif "gif" in content_type:
+        ext = "gif"
+    
+    # Step 3: Upload to Telegram as multipart/form-data
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-    payload = {
-        "chat_id": chat_id,
-        "photo": image_url,
-        "caption": caption,
-        "parse_mode": "Markdown"
-    }
-    logger.info(f"📸 Sending photo: {image_url[:50]}...")
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, json=payload)
-            logger.info(f"📸 Photo response: {response.status_code}")
+            files = {"photo": (f"product.{ext}", image_bytes, content_type or "image/jpeg")}
+            data = {
+                "chat_id": str(chat_id),
+                "caption": caption,
+                "parse_mode": "Markdown"
+            }
+            response = await client.post(url, data=data, files=files)
+            logger.info(f"📸 Telegram photo response: {response.status_code}")
             if response.status_code == 200:
                 logger.info(f"✅ Product photo sent successfully")
                 return True
             else:
-                logger.error(f"Photo send error: {response.status_code} - {response.text}")
+                logger.error(f"Photo send error: {response.status_code} - {response.text[:200]}")
                 return False
     except Exception as e:
-        logger.error(f"❌ Photo send error: {e}")
+        logger.error(f"❌ Photo upload error: {e}")
         return False
 
 

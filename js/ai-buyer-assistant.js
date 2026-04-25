@@ -867,6 +867,22 @@ Just talk to me naturally!<br>
         }
 
         if (type === 'remove_from_cart') {
+            // HF Space sends product_index (number from cart list), also supports product_id
+            if (action.product_index !== undefined || action.cart_item_number !== undefined) {
+                const items = await Cart.getCartItems();
+                const idx = action.product_index ?? action.cart_item_number;
+                if (items && items.length >= idx && idx >= 1) {
+                    const item = items[idx - 1];
+                    const productId = item.product_id || item.products?.id;
+                    if (productId) {
+                        const result = await Cart.removeFromCart(productId);
+                        if (result.success) {
+                            return { success: true, message: 'Item removed from cart!' };
+                        }
+                    }
+                }
+                return { success: false, message: 'Could not find that item in cart.' };
+            }
             if (action.product_id) {
                 const result = await Cart.removeFromCart(action.product_id);
                 if (result.success) {

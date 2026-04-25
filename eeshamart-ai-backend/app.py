@@ -197,6 +197,7 @@ AVAILABLE FUNCTIONS:
 4. clear_cart() - Empty the entire cart, remove everything
 5. view_cart() - Show cart contents
 6. checkout() - Start the checkout process
+7. update_cart(cart_item_number: int, new_quantity: int) - Change quantity of a cart item (use number from CURRENT CART). Set new_quantity to 0 to remove it.
 
 RESPONSE FORMAT - You MUST respond as valid JSON:
 
@@ -214,6 +215,7 @@ IMPORTANT:
 - Always count TOTAL products (sum quantities), not types. If cart has item1 x2 and item2 x3, total is 5
 - When user says "clear cart", "empty cart", "remove everything", "I don't want any products" - call clear_cart
 - When user says "remove X" or "take out X" - call remove_from_cart with the cart item number
+- When user says "change quantity to X", "I want X of this", "update to X" - call update_cart
 - When user says "that one", "the first one", "number 3" - refer to the products lists above
 - Respect negatives: "don't" means do NOT do it, "no" means no
 - Be natural and conversational. Do not robotic or templated.{context_block}{available_block}"""
@@ -311,8 +313,14 @@ async def execute_function_call(call: Dict, shown_products: List,
     
     elif func_name == "remove_from_cart":
         product_number = args.get("product_number", 1)
+        # Send both field names so both website and telegram can use it
         result["success"] = True
-        result["data"] = {"type": "remove_from_cart", "product_index": product_number}
+        result["data"] = {
+            "type": "remove_from_cart",
+            "product_index": product_number,
+            "product_number": product_number,
+            "cart_item_number": product_number
+        }
     
     elif func_name == "clear_cart":
         result["success"] = True
@@ -325,6 +333,16 @@ async def execute_function_call(call: Dict, shown_products: List,
     elif func_name == "checkout":
         result["success"] = True
         result["data"] = {"type": "checkout"}
+    
+    elif func_name == "update_cart":
+        cart_item_number = args.get("cart_item_number", 1)
+        new_quantity = args.get("new_quantity", 1)
+        result["success"] = True
+        result["data"] = {
+            "type": "update_cart",
+            "cart_item_number": cart_item_number,
+            "new_quantity": new_quantity
+        }
     
     else:
         print(f"Unknown function: {func_name}")
@@ -408,7 +426,7 @@ async def chat(req: ChatRequest):
                     result["response"] = reply or f"I couldn't find products matching that. Try different keywords?"
             
             elif func_name in ("add_to_cart", "remove_from_cart", "clear_cart", 
-                               "view_cart", "checkout") and exec_result["success"]:
+                               "view_cart", "checkout", "update_cart") and exec_result["success"]:
                 action_data = func_data
                 
                 # Handle login requirement for cart operations

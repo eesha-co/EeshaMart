@@ -179,6 +179,71 @@ async def get_cart(user_id: str, access_token: str) -> List[dict]:
     return []
 
 
+async def clear_cart_db(user_id: str, access_token: str) -> bool:
+    """Clear all items from user's cart in Supabase"""
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Prefer": "return=minimal"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}"
+            response = await client.delete(url, headers=headers)
+            logger.info(f"Clear cart: {response.status_code}")
+            return response.status_code in [200, 204]
+    except Exception as e:
+        logger.error(f"Clear cart error: {e}")
+    return False
+
+
+async def remove_from_cart_db(user_id: str, product_id: int, access_token: str) -> bool:
+    """Remove a specific product from user's cart in Supabase"""
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Prefer": "return=minimal"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&product_id=eq.{product_id}"
+            response = await client.delete(url, headers=headers)
+            logger.info(f"Remove from cart: {response.status_code}")
+            return response.status_code in [200, 204]
+    except Exception as e:
+        logger.error(f"Remove from cart error: {e}")
+    return False
+
+
+async def update_cart_quantity_db(user_id: str, product_id: int, access_token: str, new_quantity: int) -> bool:
+    """Update quantity of a product in cart. If new_quantity <= 0, removes the item."""
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            check_url = f"{SUPABASE_URL}/rest/v1/cart_items?user_id=eq.{user_id}&product_id=eq.{product_id}&select=id"
+            check_response = await client.get(check_url, headers=headers)
+            existing = check_response.json() if check_response.status_code == 200 else []
+            
+            if existing:
+                if new_quantity <= 0:
+                    url = f"{SUPABASE_URL}/rest/v1/cart_items?id=eq.{existing[0]['id']}"
+                    response = await client.delete(url, headers=headers)
+                else:
+                    url = f"{SUPABASE_URL}/rest/v1/cart_items?id=eq.{existing[0]['id']}"
+                    response = await client.patch(url, headers=headers, json={"quantity": new_quantity})
+                logger.info(f"Update cart qty: {response.status_code}")
+                return response.status_code in [200, 204]
+            return False
+    except Exception as e:
+        logger.error(f"Update cart qty error: {e}")
+    return False
+
+
 async def add_to_cart_db(user_id: str, product_id: int, access_token: str, quantity: int = 1) -> bool:
     """Add product to cart in Supabase using authenticated request"""
     # Headers with Authorization
@@ -570,6 +635,60 @@ Visit eeshamart.com to complete your order."""
         
         elif action_type == "login_required":
             response_text = "🔐 Please login first. Send /start"
+        
+        elif action_type == "clear_cart":
+            success = await clear_cart_db(account["user_id"], account["access_token"])
+            if success:
+                user_sessions[chat_id]["cart_items"] = []
+                response_text = "Your cart has been cleared! It's now empty."
+            else:
+                response_text = "Failed to clear cart. Please try again."
+        
+        elif action_type == "remove_from_cart":
+            cart_item_number = action.get("cart_item_number", 1)
+            cart = user_sessions[chat_id].get("cart_items", [])
+            if 1 <= cart_item_number <= len(cart):
+                item = cart[cart_item_number - 1]
+                product_id = item.get("product_id") or (item.get("products") or {}).get("id")
+                if product_id:
+                    success = await remove_from_cart_db(account["user_id"], product_id, account["access_token"])
+                    if success:
+                        cart = await get_cart(account["user_id"], account["access_token"])
+                        user_sessions[chat_id]["cart_items"] = cart
+                        response_text = "Item removed from your cart!"
+                    else:
+                        response_text = "Failed to remove. Try again."
+                else:
+                    response_text = "Could not find that item."
+            elif cart:
+                response_text = f"Choose a number between 1 and {len(cart)}"
+            else:
+                response_text = "Your cart is already empty."
+        
+        elif action_type == "update_cart":
+            cart_item_number = action.get("cart_item_number", 1)
+            new_quantity = action.get("new_quantity", 1)
+            cart = user_sessions[chat_id].get("cart_items", [])
+            if 1 <= cart_item_number <= len(cart):
+                item = cart[cart_item_number - 1]
+                product_id = item.get("product_id") or (item.get("products") or {}).get("id")
+                if product_id:
+                    success = await update_cart_quantity_db(account["user_id"], product_id, account["access_token"], new_quantity)
+                    if success:
+                        cart = await get_cart(account["user_id"], account["access_token"])
+                        user_sessions[chat_id]["cart_items"] = cart
+                        if new_quantity <= 0:
+                            response_text = "Item removed from your cart!"
+                        else:
+                            response_text = f"Quantity updated to {new_quantity}!"
+                    else:
+                        response_text = "Failed to update. Try again."
+                else:
+                    response_text = "Could not find that item."
+            elif cart:
+                response_text = f"Choose a number between 1 and {len(cart)}"
+            else:
+                response_text = "Your cart is already empty."
     
     # ========== HANDLE PRODUCT SEARCH RESULTS ==========
     

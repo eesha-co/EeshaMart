@@ -919,6 +919,31 @@ Just talk to me naturally!<br>
             return { success: true, message: 'Redirecting to checkout...' };
         }
 
+        if (type === 'clear_cart') {
+            const result = await Cart.clearCart();
+            if (result.success) {
+                context.lastShownProducts = [];
+                return { success: true, message: 'Your cart has been cleared! It is now empty.' };
+            }
+            return { success: false, message: 'Could not clear cart. Please try again.' };
+        }
+
+        if (type === 'update_cart') {
+            const cartItems = await Cart.getCartItems();
+            const cartItemNumber = action.cart_item_number || 1;
+            const newQuantity = action.new_quantity;
+
+            if (cartItems && cartItems.length >= cartItemNumber && cartItemNumber >= 1 && newQuantity !== undefined) {
+                const item = cartItems[cartItemNumber - 1];
+                const result = await Cart.updateQuantity(item.id, newQuantity);
+                if (result.success) {
+                    return { success: true, message: newQuantity <= 0 ? 'Item removed from cart!' : `Quantity updated to ${newQuantity}!` };
+                }
+                return { success: false, message: 'Could not update quantity.' };
+            }
+            return { success: false, message: cartItems && cartItems.length > 0 ? `Choose a number between 1 and ${cartItems.length}` : 'Your cart is empty.' };
+        }
+
         return null;
     }
 

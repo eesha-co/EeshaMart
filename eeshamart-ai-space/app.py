@@ -310,48 +310,108 @@ def parse_ai_response(response: str) -> Optional[Dict]:
     """
     Parse the AI's response into {reply, calls}.
 
-    Small models (Qwen2.5-3B, etc.) frequently emit slightly-malformed JSON.
-    We try several strategies in order:
-      1. Direct parse of the substring between the first '{' and last '}'.
-      2. Auto-repair common issues (missing quotes on keys, single quotes, trailing commas).
-      3. Fallback: extract just the reply text, ignore calls.
+    Small models (Qwen2.5-1.5B/3B, etc.) frequently emit slightly-malformed JSON:
+      - Trailing garbage after the JSON closes: {"...":"..."}"  or  {...}}
+      - Missing closing quote on keys: {"product_number: 1}
+      - Single quotes, trailing commas, unquoted keys
+      - Multiple JSON objects concatenated
 
-    Returns None if nothing usable could be extracted.
+    Strategies (in order):
+      1. Bracket-matched extraction of the first balanced {...}, then direct parse.
+      2. Bracket-matched substring + auto-repair.
+      3. Last-{ to first-} substring + auto-repair (handles missing-quote case where
+         bracket-matching fails because string detection is confused).
+      4. Fallback: return None (caller treats raw text as reply).
     """
     if not response:
         return None
 
-    # Strategy 1: direct parse of JSON substring
     json_start = response.find('{')
-    json_end = response.rfind('}') + 1
-    if json_start != -1 and json_end > json_start:
-        json_str = response[json_start:json_end]
-        try:
-            result = json.loads(json_str)
-            if "reply" not in result:
-                result["reply"] = response
-            if "calls" not in result:
-                result["calls"] = []
-            return result
-        except json.JSONDecodeError:
-            pass
+    if json_start == -1:
+        return None
 
-        # Strategy 2: auto-repair common issues
+    # Strategy 1: bracket-matched extraction (handles trailing garbage)
+    balanced_end = _find_balanced_json_end(response, json_start)
+    if balanced_end > json_start:
+        json_str = response[json_start:balanced_end]
+        result = _try_parse(json_str, response)
+        if result is not None:
+            return result
+
+        # Strategy 2: balanced substring + repair
         repaired = _repair_json(json_str)
         if repaired != json_str:
-            try:
-                result = json.loads(repaired)
-                if "reply" not in result:
-                    result["reply"] = response
-                if "calls" not in result:
-                    result["calls"] = []
-                print(f"Auto-repaired JSON: {repaired}")
+            result = _try_parse(repaired, response, repair_log=True)
+            if result is not None:
                 return result
-            except json.JSONDecodeError as e:
-                print(f"Auto-repair failed: {e}")
 
-    # Strategy 3: fallback - no JSON parseable, treat whole thing as reply
+    # Strategy 3: first-{ to last-} (handles missing-quote case where bracket matching
+    # gets confused by unbalanced string quotes)
+    json_end = response.rfind('}') + 1
+    if json_end > json_start:
+        json_str = response[json_start:json_end]
+        result = _try_parse(json_str, response)
+        if result is not None:
+            return result
+
+        repaired = _repair_json(json_str)
+        if repaired != json_str:
+            result = _try_parse(repaired, response, repair_log=True)
+            if result is not None:
+                return result
+
+    # Strategy 4: nothing parseable - signal failure
     return None
+
+
+def _try_parse(json_str: str, raw_response: str, repair_log: bool = False) -> Optional[Dict]:
+    """Try to parse json_str. On success, normalize {reply, calls} and return."""
+    try:
+        result = json.loads(json_str)
+        if not isinstance(result, dict):
+            return None
+        if "reply" not in result:
+            result["reply"] = raw_response
+        if "calls" not in result:
+            result["calls"] = []
+        if repair_log:
+            print(f"Auto-repaired JSON: {json_str}")
+        return result
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _find_balanced_json_end(s: str, start: int) -> int:
+    """
+    Walk from s[start] (must be '{') and balance braces/brackets while
+    respecting string literals and escape sequences. Returns the index
+    AFTER the matching '}' (i.e. exclusive end), or -1 if unbalanced.
+    """
+    if start >= len(s) or s[start] != '{':
+        return -1
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(start, len(s)):
+        c = s[i]
+        if escape:
+            escape = False
+            continue
+        if c == '\\':
+            escape = True
+            continue
+        if c == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if c in '{[':
+            depth += 1
+        elif c in '}]':
+            depth -= 1
+            if depth == 0:
+                return i + 1
+    return -1
 
 
 def _repair_json(s: str) -> str:

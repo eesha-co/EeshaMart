@@ -293,26 +293,88 @@ IMPORTANT:
         response = chat_tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
         print(f"AI raw response: {response}")
 
-        # Parse JSON
-        try:
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
-            if json_start != -1 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                result = json.loads(json_str)
-                if "reply" not in result:
-                    result = {"reply": response, "calls": []}
-                if "calls" not in result:
-                    result["calls"] = []
-                return result
-        except json.JSONDecodeError:
-            pass
+        # Parse JSON (with auto-repair for common small-model malformations)
+        result = parse_ai_response(response)
+        if result is not None:
+            return result
 
+        # All parsing failed - return the raw text as the reply
         return {"reply": response, "calls": []}
 
     except Exception as e:
         print(f"AI error: {e}")
         return {"reply": "I'm thinking... could you try again?", "calls": []}
+
+
+def parse_ai_response(response: str) -> Optional[Dict]:
+    """
+    Parse the AI's response into {reply, calls}.
+
+    Small models (Qwen2.5-3B, etc.) frequently emit slightly-malformed JSON.
+    We try several strategies in order:
+      1. Direct parse of the substring between the first '{' and last '}'.
+      2. Auto-repair common issues (missing quotes on keys, single quotes, trailing commas).
+      3. Fallback: extract just the reply text, ignore calls.
+
+    Returns None if nothing usable could be extracted.
+    """
+    if not response:
+        return None
+
+    # Strategy 1: direct parse of JSON substring
+    json_start = response.find('{')
+    json_end = response.rfind('}') + 1
+    if json_start != -1 and json_end > json_start:
+        json_str = response[json_start:json_end]
+        try:
+            result = json.loads(json_str)
+            if "reply" not in result:
+                result["reply"] = response
+            if "calls" not in result:
+                result["calls"] = []
+            return result
+        except json.JSONDecodeError:
+            pass
+
+        # Strategy 2: auto-repair common issues
+        repaired = _repair_json(json_str)
+        if repaired != json_str:
+            try:
+                result = json.loads(repaired)
+                if "reply" not in result:
+                    result["reply"] = response
+                if "calls" not in result:
+                    result["calls"] = []
+                print(f"Auto-repaired JSON: {repaired}")
+                return result
+            except json.JSONDecodeError as e:
+                print(f"Auto-repair failed: {e}")
+
+    # Strategy 3: fallback - no JSON parseable, treat whole thing as reply
+    return None
+
+
+def _repair_json(s: str) -> str:
+    """Apply common JSON repairs for small-LLM output. Idempotent-ish."""
+    import re
+
+    # 1. Missing closing quote on object keys: {"key: value} -> {"key": value}
+    #    Pattern: "word followed by colon (not preceded by closing quote)
+    s = re.sub(r'"(\w+):\s', r'"\1": ', s)
+
+    # 2. Single quotes -> double quotes (only for keys/values, naive but works for our schema)
+    #    Skip this if the string contains apostrophes inside text to avoid breaking prose.
+    #    We only apply it if there are no double-quoted strings already containing apostrophes.
+    if "'" in s and not re.search(r'"[^"]*\'[^"]*"', s):
+        s = s.replace("'", '"')
+
+    # 3. Trailing comma before } or ]
+    s = re.sub(r',\s*([}\]])', r'\1', s)
+
+    # 4. Unquoted keys: {function: "x"} -> {"function": "x"}
+    s = re.sub(r'(?<=[{,])\s*(\w+)\s*:', r' "\1":', s)
+
+    return s
 
 
 async def execute_function_call(call: Dict, shown_products: List,

@@ -103,33 +103,56 @@ def escape_html(text: str) -> str:
 
 async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool:
     """Send product photo with caption via Telegram API.
-    Strategy: Download image bytes, upload to Telegram as multipart.
-    Fallback: Try passing URL directly if download fails."""
+
+    Telegram only supports JPG/PNG/GIF/BMP/WEBP. Many product images
+    (especially from Google Shopping) are in AVIF format, which Telegram
+    rejects. We download the image, convert it to JPEG with Pillow, then
+    upload the JPEG bytes. This handles any input format.
+
+    Fallback: If conversion fails, try passing the URL directly to Telegram
+    (Telegram's servers may handle some formats our code can't).
+    """
+    import io
+    from PIL import Image as PILImage
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-    
-    # ---- Strategy 1: Download + Upload as binary ----
+
+    # ---- Strategy 1: Download, convert to JPEG, upload as binary ----
     try:
-        download_headers = {}
+        download_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
         if "supabase.co" in image_url:
             download_headers["apikey"] = SUPABASE_KEY
-        
+
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=download_headers) as dl_client:
             img_response = await dl_client.get(image_url)
-        
+
         if img_response.status_code == 200 and len(img_response.content) > 100:
-            image_bytes = img_response.content
-            content_type = img_response.headers.get("content-type", "image/jpeg")
-            
-            ext = "jpg"
-            if "png" in content_type:
-                ext = "png"
-            elif "webp" in content_type:
-                ext = "webp"
-            elif "gif" in content_type:
-                ext = "gif"
-            
+            # Open with Pillow (handles AVIF, WebP, PNG, JPG, etc.)
+            img = PILImage.open(io.BytesIO(img_response.content)).convert("RGB")
+
+            # Resize if too large (Telegram limit: 10MB, but keep it reasonable)
+            MAX_DIM = 800
+            w, h = img.size
+            if w > MAX_DIM or h > MAX_DIM:
+                if w > h:
+                    h = round(h * MAX_DIM / w)
+                    w = MAX_DIM
+                else:
+                    w = round(w * MAX_DIM / h)
+                    h = MAX_DIM
+                img = img.resize((w, h))
+
+            # Save as JPEG bytes
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            image_bytes = buf.getvalue()
+
+            logger.info(f"📸 Image converted to JPEG: {len(img_response.content)} -> {len(image_bytes)} bytes")
+
             async with httpx.AsyncClient(timeout=60.0) as client:
-                files = {"photo": (f"product.{ext}", image_bytes, content_type)}
+                files = {"photo": ("product.jpg", image_bytes, "image/jpeg")}
                 data = {
                     "chat_id": str(chat_id),
                     "caption": caption,
@@ -138,13 +161,15 @@ async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool
                 response = await client.post(url, data=data, files=files)
                 logger.info(f"📸 Binary upload response: {response.status_code}")
                 if response.status_code == 200:
-                    logger.info(f"✅ Product photo sent (binary upload)")
+                    logger.info(f"✅ Product photo sent (JPEG conversion)")
                     return True
                 else:
                     logger.warning(f"⚠️ Binary upload failed: {response.text[:200]}")
+        else:
+            logger.warning(f"⚠️ Image download failed: HTTP {img_response.status_code}, size={len(img_response.content)}")
     except Exception as e:
-        logger.warning(f"⚠️ Download/upload failed: {e}")
-    
+        logger.warning(f"⚠️ Download/convert/upload failed: {e}")
+
     # ---- Strategy 2: Pass URL directly to Telegram (fallback) ----
     try:
         logger.info(f"📸 Trying URL fallback: {image_url[:80]}...")
@@ -164,7 +189,7 @@ async def send_product_photo(chat_id: int, image_url: str, caption: str) -> bool
                 logger.warning(f"⚠️ URL fallback failed: {response.text[:200]}")
     except Exception as e:
         logger.error(f"❌ URL fallback error: {e}")
-    
+
     return False
 
 

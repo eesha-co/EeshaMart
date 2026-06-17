@@ -377,7 +377,11 @@ def _try_parse(json_str: str, raw_response: str, repair_log: bool = False) -> Op
         if not isinstance(result, dict):
             return None
         if "reply" not in result:
-            result["reply"] = raw_response
+            # AI emitted JSON without a "reply" field (usually just {"calls": [...]}).
+            # Use empty string - the chat endpoint will fill in a sensible default
+            # if no reply is provided. Do NOT use raw_response as fallback because
+            # that would leak JSON to the user.
+            result["reply"] = ""
         if "calls" not in result:
             result["calls"] = []
         if repair_log:
@@ -548,8 +552,31 @@ async def chat(req: ChatRequest):
     )
     print(f"AI result: {ai}")
 
-    reply = ai.get("reply", "How can I help?")
+    reply = ai.get("reply", "") or ""
     calls = ai.get("calls", [])
+
+    # If the AI called functions but provided no reply text, construct a sensible default
+    # so the user isn't left staring at an empty message.
+    if not reply.strip() and calls:
+        func_names = [c.get("function", "") for c in calls]
+        if "search_products" in func_names:
+            reply = "Let me search for that."
+        elif "add_to_cart" in func_names:
+            reply = "Added to your cart."
+        elif "remove_from_cart" in func_names:
+            reply = "Removed from your cart."
+        elif "update_cart" in func_names:
+            reply = "Your cart has been updated."
+        elif "clear_cart" in func_names:
+            reply = "Your cart has been cleared."
+        elif "view_cart" in func_names:
+            reply = "Here's your cart."
+        elif "checkout" in func_names:
+            reply = "Starting checkout."
+        else:
+            reply = "Done."
+    elif not reply.strip():
+        reply = "How can I help?"
 
     result = {
         "success": True,

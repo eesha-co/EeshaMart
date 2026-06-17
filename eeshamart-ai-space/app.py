@@ -230,7 +230,9 @@ AVAILABLE FUNCTIONS:
 6. checkout() - Start the checkout process
 7. update_cart(cart_item_number: int, new_quantity: int) - Change quantity of a cart item (use number from CURRENT CART). Set new_quantity to 0 to remove it.
 
-RESPONSE FORMAT - You MUST respond as valid JSON ONLY (no markdown, no code fences, no prose before or after):
+RESPONSE FORMAT - You MUST respond as valid JSON ONLY (no markdown, no code fences, no prose before or after).
+The "reply" field is ALWAYS REQUIRED - it is the message shown to the user. Never omit it.
+Write a natural, contextual reply that acknowledges what you are doing or what you found.
 
 For normal chat (no action needed):
 {{"reply": "your response here"}}
@@ -272,39 +274,32 @@ IMPORTANT:
 
     messages.append({"role": "user", "content": message})
 
-    # Call HF Router (OpenAI-compatible)
+    # Call HF Router (OpenAI-compatible). If the AI returned calls but no reply,
+    # retry once with an explicit instruction to include a reply.
     try:
-        payload = {
-            "model": HF_INFERENCE_MODEL,
-            "messages": messages,
-            "max_tokens": MAX_NEW_TOKENS,
-            "temperature": 0.7,
-            "top_p": 0.9,
-        }
-        headers = {
-            "Authorization": f"Bearer {HF_TOKEN}",
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=AI_TIMEOUT) as client:
-            resp = await client.post(HF_ROUTER_URL, json=payload, headers=headers)
-
-        if resp.status_code != 200:
-            print(f"HF Router HTTP {resp.status_code}: {resp.text[:500]}")
+        result = await _call_hf_router(messages)
+        if result is None:
             return {"reply": "I'm having trouble connecting to my brain right now. Please try again in a moment.", "calls": []}
 
-        data = resp.json()
-        response_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        print(f"AI raw response: {response_text}")
-        print(f"Tokens used: {data.get('usage', {})}")
+        # Retry once if the AI emitted calls without a reply text.
+        if not (result.get("reply") or "").strip() and result.get("calls"):
+            print("AI omitted reply - retrying with explicit instruction")
+            retry_messages = messages + [
+                {"role": "assistant", "content": json.dumps(result)},
+                {"role": "user", "content": "You forgot the 'reply' field. Please respond again with the SAME function calls, but this time include a natural 'reply' message that tells the user what you're doing."},
+            ]
+            retried = await _call_hf_router(retry_messages)
+            if retried and (retried.get("reply") or "").strip():
+                # Preserve calls from retry (they should match, but retry is authoritative)
+                result = retried
+            else:
+                # Retry didn't help - keep original calls, leave reply empty.
+                # The chat endpoint will detect empty reply + calls and handle gracefully
+                # (it will NOT inject hardcoded text; it will pass empty string to the
+                # caller, which the frontend handles by showing just the action result).
+                print("Retry did not produce a reply - leaving reply empty")
 
-        # Parse JSON (large models are usually clean, but keep the robust parser for safety)
-        result = parse_ai_response(response_text)
-        if result is not None:
-            return result
-
-        # No JSON parseable - return raw text as reply
-        return {"reply": response_text, "calls": []}
+        return result
 
     except httpx.TimeoutException:
         print("HF Router timeout")
@@ -312,6 +307,50 @@ IMPORTANT:
     except Exception as e:
         print(f"AI error: {e}")
         return {"reply": "I'm having trouble right now. Please try again.", "calls": []}
+
+
+async def _call_hf_router(messages: List[Dict]) -> Optional[Dict]:
+    """Single HF Router call. Returns parsed {reply, calls} dict, or None on failure."""
+    payload = {
+        "model": HF_INFERENCE_MODEL,
+        "messages": messages,
+        "max_tokens": MAX_NEW_TOKENS,
+        "temperature": 0.7,
+        "top_p": 0.9,
+    }
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=AI_TIMEOUT) as client:
+            resp = await client.post(HF_ROUTER_URL, json=payload, headers=headers)
+    except Exception as e:
+        print(f"HF Router request error: {e}")
+        return None
+
+    if resp.status_code != 200:
+        print(f"HF Router HTTP {resp.status_code}: {resp.text[:500]}")
+        return None
+
+    try:
+        data = resp.json()
+    except Exception as e:
+        print(f"HF Router JSON parse error: {e}")
+        return None
+
+    response_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+    print(f"AI raw response: {response_text}")
+    print(f"Tokens used: {data.get('usage', {})}")
+
+    # Parse JSON (large models are usually clean, but keep the robust parser for safety)
+    result = parse_ai_response(response_text)
+    if result is not None:
+        return result
+
+    # No JSON parseable - return raw text as reply (no calls)
+    return {"reply": response_text, "calls": []}
 
 
 def parse_ai_response(response: str) -> Optional[Dict]:
@@ -552,31 +591,15 @@ async def chat(req: ChatRequest):
     )
     print(f"AI result: {ai}")
 
-    reply = ai.get("reply", "") or ""
-    calls = ai.get("calls", [])
+    reply = (ai.get("reply") or "").strip()
+    calls = ai.get("calls") or []
 
-    # If the AI called functions but provided no reply text, construct a sensible default
-    # so the user isn't left staring at an empty message.
-    if not reply.strip() and calls:
-        func_names = [c.get("function", "") for c in calls]
-        if "search_products" in func_names:
-            reply = "Let me search for that."
-        elif "add_to_cart" in func_names:
-            reply = "Added to your cart."
-        elif "remove_from_cart" in func_names:
-            reply = "Removed from your cart."
-        elif "update_cart" in func_names:
-            reply = "Your cart has been updated."
-        elif "clear_cart" in func_names:
-            reply = "Your cart has been cleared."
-        elif "view_cart" in func_names:
-            reply = "Here's your cart."
-        elif "checkout" in func_names:
-            reply = "Starting checkout."
-        else:
-            reply = "Done."
-    elif not reply.strip():
-        reply = "How can I help?"
+    # Note: we deliberately do NOT inject hardcoded fallback replies here.
+    # If the AI omitted its reply text, ai_chat() already attempted a retry with
+    # an explicit instruction. If the retry also failed, we pass an empty string
+    # and let the frontend render the action result without a text bubble.
+    # Hardcoded strings like "Added to your cart." would be wrong half the time
+    # (e.g. when the add_to_cart actually fails on the frontend due to auth).
 
     result = {
         "success": True,
@@ -585,6 +608,14 @@ async def chat(req: ChatRequest):
         "action": None,
         "image_description": image_description
     }
+
+    # Backend-side login enforcement (defensive).
+    # The AI is instructed to ask users to login before cart operations, but we
+    # cannot trust the LLM to always honor this. If the user is not logged in,
+    # intercept ANY cart-modifying or cart-viewing function call and return a
+    # login_required action instead. This is the single source of truth for auth.
+    CART_FUNCTIONS = {"add_to_cart", "remove_from_cart", "clear_cart",
+                      "view_cart", "checkout", "update_cart"}
 
     # Execute all function calls dynamically
     if calls and len(calls) > 0:
@@ -599,18 +630,25 @@ async def chat(req: ChatRequest):
             if func_name == "search_products" and exec_result["success"]:
                 products = func_data
                 result["products"] = products
-                if not products:
-                    result["response"] = reply or f"I couldn't find products matching that. Try different keywords?"
+                # If the AI didn't write a reply and the search returned nothing,
+                # leave the reply empty - the frontend already shows "no products found"
+                # UI based on the empty products array. We do NOT inject hardcoded text.
 
-            elif func_name in ("add_to_cart", "remove_from_cart", "clear_cart",
-                               "view_cart", "checkout", "update_cart") and exec_result["success"]:
-                action_data = func_data
-
-                if func_name in ("view_cart",) and not is_logged_in:
-                    result["response"] = "Please login to view your cart."
+            elif func_name in CART_FUNCTIONS and exec_result["success"]:
+                # Enforce login on the BACKEND, regardless of what the AI said.
+                if not is_logged_in:
+                    # Override whatever the AI said with the login_required action.
+                    # Use the AI's reply if it mentioned login, otherwise leave empty
+                    # so the frontend can render its own login prompt UI.
                     result["action"] = {"type": "login_required"}
+                    # Don't overwrite a helpful AI reply that already mentions login
+                    # (e.g. "Please login to view your cart."), but DO overwrite any
+                    # reply that leaks cart contents (e.g. "Your cart is empty").
+                    reply_lower = reply.lower()
+                    if not any(k in reply_lower for k in ("login", "log in", "sign in", "account")):
+                        result["response"] = ""
                 else:
-                    result["action"] = action_data
+                    result["action"] = func_data
 
     return result
 

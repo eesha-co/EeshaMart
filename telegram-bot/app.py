@@ -495,7 +495,7 @@ async def send_cart_with_images(chat_id: int, cart_items: List[dict]) -> bool:
     return True
 
 
-async def process_message(chat_id: int, user_id: int, text: str, username: str = None, image_base64: str = None) -> str:
+async def process_message(chat_id: int, user_id: int, text: str, username: str = None, first_name: str = None, image_base64: str = None) -> str:
     """Process incoming message with full AI capabilities"""
     logger.info(f"📩 From {chat_id}: {text[:50] if text else 'image'}...")
     
@@ -533,7 +533,8 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
                     "email": email,
                     "access_token": auth_result["access_token"],
                     "telegram_id": chat_id,
-                    "username": username
+                    "username": username,
+                    "first_name": first_name
                 }
                 del auth_sessions[chat_id]
                 
@@ -541,7 +542,8 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
                 cart = await get_cart(auth_result["user_id"], auth_result["access_token"])
                 user_sessions[chat_id]["cart_items"] = cart
                 
-                return f"""✅ <b>Welcome!</b>
+                display_name = first_name or username or "there"
+                return f"""✅ <b>Welcome, {escape_html(display_name)}!</b>
 
 🎉 Account linked!
 
@@ -560,7 +562,8 @@ async def process_message(chat_id: int, user_id: int, text: str, username: str =
     
     if text_lower.startswith('/start'):
         if chat_id in linked_accounts:
-            return """✅ <b>Welcome Back!</b>
+            display_name = linked_accounts[chat_id].get("first_name") or linked_accounts[chat_id].get("username") or first_name or "back"
+            return f"""✅ <b>Welcome back, {escape_html(display_name)}!</b>
 
 🤖 I'm Eesha! Chat with me about anything or send a photo to find products."""
         auth_sessions[chat_id] = {"state": AUTH_STATE_EMAIL}
@@ -809,6 +812,7 @@ async def handle_telegram_message(body: dict):
         chat_id = message.get("chat", {}).get("id")
         user_id = message.get("from", {}).get("id")
         username = message.get("from", {}).get("username", "")
+        first_name = message.get("from", {}).get("first_name", "")
         text = message.get("text", "")
         
         # Show typing indicator AND thinking message in chat
@@ -870,6 +874,7 @@ async def handle_telegram_message(body: dict):
                 user_id,
                 ai_text,
                 username,
+                first_name,
                 compressed_image
             )
             

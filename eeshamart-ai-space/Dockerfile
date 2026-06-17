@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# Install system dependencies
+# Install system dependencies (BLIP/torch still needs some build tools)
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -20,7 +20,7 @@ ENV PORT=7860
 EXPOSE 7860
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:7860/ || exit 1
 
 CMD ["python", "app.py"]

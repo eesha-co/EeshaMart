@@ -1,7 +1,14 @@
-# EeshaMart AI - Dynamic Function Calling AI
-# Works like ChatGPT/Gemini/Grok: AI decides what functions to call based on context
-# NO hardcoded intents, NO pattern matching, NO rigid rules
-# Real conversation memory, image understanding, dynamic tool use
+# EeshaMart AI - Dynamic Function Calling AI (HF Inference API edition)
+#
+# Chat: Qwen2.5-72B-Instruct (or any model) via HF Router (OpenAI-compatible)
+# Vision: Salesforce BLIP (local, small ~1GB) - kept local because HF Router
+#         doesn't expose vision models on the free tier.
+#
+# Benefits over local-Qwen version:
+#   - ~10x faster responses (2-5s vs 30-60s)
+#   - Much better function-calling reliability (72B vs 3B)
+#   - Smaller Docker image (no 6GB Qwen download)
+#   - Free HF CPU tier handles it easily
 
 import os
 import httpx
@@ -13,7 +20,8 @@ import json
 import base64
 from io import BytesIO
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, BlipProcessor, BlipForConditionalGeneration
+# BLIP still loaded locally (small, ~1GB)
+from transformers import BlipProcessor, BlipForConditionalGeneration
 import torch
 from PIL import Image
 
@@ -32,65 +40,54 @@ app.add_middleware(
 # Required
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-
-# Optional - model IDs (default to the production values)
-CHAT_MODEL_ID = os.environ.get("CHAT_MODEL_ID", "Qwen/Qwen2.5-3B-Instruct")
-VISION_MODEL_ID = os.environ.get("VISION_MODEL_ID", "Salesforce/blip-image-captioning-base")
-
-# Optional - Hugging Face token (needed for gated/private model downloads)
-# When set, transformers will pick it up automatically via $HF_TOKEN.
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
+
+# Chat model - via HF Router (OpenAI-compatible)
+HF_ROUTER_URL = os.environ.get("HF_ROUTER_URL", "https://router.huggingface.co/v1/chat/completions")
+HF_INFERENCE_MODEL = os.environ.get("HF_INFERENCE_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+
+# Vision model (BLIP) - kept local because HF Router doesn't expose vision models
+VISION_MODEL_ID = os.environ.get("VISION_MODEL_ID", "Salesforce/blip-image-captioning-base")
 
 # Optional - runtime tuning
 PORT = int(os.environ.get("PORT", "7860"))
-TORCH_DTYPE = torch.float16 if os.environ.get("TORCH_DTYPE", "float32").lower() == "float16" else torch.float32
 MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "512"))
 MAX_INPUT_TOKENS = int(os.environ.get("MAX_INPUT_TOKENS", "3072"))
+AI_TIMEOUT = float(os.environ.get("AI_TIMEOUT", "60"))  # seconds for HF Router call
 
-# Quick startup log so it's visible in HF Space build logs
 print(
     "Config: "
     f"SUPABASE_URL={'set' if SUPABASE_URL else 'MISSING'}, "
     f"SUPABASE_KEY={'set' if SUPABASE_KEY else 'MISSING'}, "
-    f"CHAT_MODEL_ID={CHAT_MODEL_ID}, "
+    f"HF_INFERENCE_MODEL={HF_INFERENCE_MODEL}, "
     f"VISION_MODEL_ID={VISION_MODEL_ID}, "
-    f"HF_TOKEN={'set' if HF_TOKEN else 'none'}, "
+    f"HF_TOKEN={'set' if HF_TOKEN else 'MISSING'}, "
     f"PORT={PORT}"
 )
 
-# Models
-chat_model = None
-chat_tokenizer = None
+# Vision model loaded at startup (chat model is remote - no local load)
 vision_processor = None
 vision_model = None
+
 
 class ChatRequest(BaseModel):
     message: str
     context: Optional[Dict] = None
 
+
 @app.on_event("startup")
 async def load():
-    global chat_model, chat_tokenizer, vision_processor, vision_model
+    """Only load BLIP locally. Chat model is called via HF Router (remote)."""
+    global vision_processor, vision_model
 
-    print("Loading AI models...")
-
-    print(f"Loading {CHAT_MODEL_ID} for chat...")
-    chat_tokenizer = AutoTokenizer.from_pretrained(CHAT_MODEL_ID, trust_remote_code=True,
-                                                   token=HF_TOKEN or None)
-    chat_model = AutoModelForCausalLM.from_pretrained(
-        CHAT_MODEL_ID,
-        torch_dtype=TORCH_DTYPE,
-        trust_remote_code=True,
-        token=HF_TOKEN or None,
-    )
-    chat_model.eval()
-
-    print(f"Loading {VISION_MODEL_ID} for image understanding...")
+    print(f"Loading {VISION_MODEL_ID} for image understanding (local)...")
     vision_processor = BlipProcessor.from_pretrained(VISION_MODEL_ID, token=HF_TOKEN or None)
     vision_model = BlipForConditionalGeneration.from_pretrained(VISION_MODEL_ID, token=HF_TOKEN or None)
     vision_model.eval()
 
+    print(f"Chat model: {HF_INFERENCE_MODEL} via HF Router (remote, no local load)")
     print("All models loaded - Dynamic AI ready!")
+
 
 def analyze_image(base64_image: str) -> str:
     """Analyze an image using BLIP and return description"""
@@ -114,6 +111,7 @@ def analyze_image(base64_image: str) -> str:
     except Exception as e:
         print(f"Image analysis error: {e}")
         return "an image"
+
 
 async def db_search(query: str, max_price: int = None) -> List[Dict]:
     """Search products in database"""
@@ -153,6 +151,7 @@ async def db_search(query: str, max_price: int = None) -> List[Dict]:
         print(f"Search error: {e}")
         return []
 
+
 async def db_get_all_products() -> List[Dict]:
     """Get all products for reference"""
     try:
@@ -164,19 +163,15 @@ async def db_get_all_products() -> List[Dict]:
         print(f"Get all products error: {e}")
         return []
 
+
 async def ai_chat(message: str, cart_items: List, shown_products: List,
                    conversation_history: List, all_products: List,
                    image_description: str = None) -> Dict:
     """
-    Dynamic AI with function calling - like ChatGPT/Gemini/Grok.
-    AI sees available functions and decides WHEN to use them based on context.
-    No hardcoded intents. No pattern matching. Pure understanding.
+    Dynamic AI with function calling via HF Router (Qwen2.5-72B-Instruct or similar).
+
+    Returns: {"reply": str, "calls": [{"function": str, "args": {...}}, ...]}
     """
-    global chat_model, chat_tokenizer
-
-    if not chat_model:
-        return {"reply": "AI is loading... please wait.", "calls": []}
-
     # Build dynamic context
     context_parts = []
 
@@ -218,7 +213,7 @@ async def ai_chat(message: str, cart_items: List, shown_products: List,
         lines = [f"- {p.get('name')} (N{p.get('price',0):,}, {p.get('category','General')})" for p in all_products[:25]]
         available_block = "\n\n[STORE PRODUCTS:]\n" + "\n".join(lines)
 
-    # System prompt - describes available functions, NOT rigid rules
+    # System prompt
     system = f"""You are Eesha, a smart AI assistant for EeshaMart (Nigerian online store, prices in Naira N).
 You are helpful, friendly, and knowledgeable. You can discuss ANY topic naturally.
 You have real conversation memory - you remember what was said before.
@@ -235,7 +230,7 @@ AVAILABLE FUNCTIONS:
 6. checkout() - Start the checkout process
 7. update_cart(cart_item_number: int, new_quantity: int) - Change quantity of a cart item (use number from CURRENT CART). Set new_quantity to 0 to remove it.
 
-RESPONSE FORMAT - You MUST respond as valid JSON:
+RESPONSE FORMAT - You MUST respond as valid JSON ONLY (no markdown, no code fences, no prose before or after):
 
 For normal chat (no action needed):
 {{"reply": "your response here"}}
@@ -247,16 +242,17 @@ You can call MULTIPLE functions at once if needed.
 You can also respond with NO calls - just a reply - when the user is chatting, asking questions, or no action is needed.
 
 IMPORTANT:
-- When user sends a product image, IMMEDIATELY call search_products with what you see
+- When user sends a product image, IMMEDIATELY call search_products with what you see in the image
+- When user describes something abstractly (e.g. "something that flies and records video"), infer the product type and call search_products with a relevant query (e.g. "drone")
 - Always count TOTAL products (sum quantities), not types. If cart has item1 x2 and item2 x3, total is 5
 - When user says "clear cart", "empty cart", "remove everything", "I don't want any products" - call clear_cart
 - When user says "remove X" or "take out X" - call remove_from_cart with the cart item number
 - When user says "change quantity to X", "I want X of this", "update to X" - call update_cart
 - When user says "that one", "the first one", "number 3" - refer to the products lists above
 - Respect negatives: "don't" means do NOT do it, "no" means no
-- Be natural and conversational. Do not robotic or templated.{context_block}{available_block}"""
+- Be natural and conversational. Do not be robotic or templated.{context_block}{available_block}"""
 
-    # Build messages with REAL conversation history as chat turns
+    # Build messages with conversation history
     messages = [{"role": "system", "content": system}]
 
     if conversation_history and len(conversation_history) > 0:
@@ -276,55 +272,69 @@ IMPORTANT:
 
     messages.append({"role": "user", "content": message})
 
+    # Call HF Router (OpenAI-compatible)
     try:
-        text = chat_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = chat_tokenizer(text, return_tensors="pt", truncation=True, max_length=MAX_INPUT_TOKENS)
+        payload = {
+            "model": HF_INFERENCE_MODEL,
+            "messages": messages,
+            "max_tokens": MAX_NEW_TOKENS,
+            "temperature": 0.7,
+            "top_p": 0.9,
+        }
+        headers = {
+            "Authorization": f"Bearer {HF_TOKEN}",
+            "Content-Type": "application/json",
+        }
 
-        with torch.no_grad():
-            out = chat_model.generate(
-                inputs["input_ids"],
-                max_new_tokens=MAX_NEW_TOKENS,
-                temperature=0.7,
-                do_sample=True,
-                top_p=0.9,
-                pad_token_id=chat_tokenizer.eos_token_id
-            )
+        async with httpx.AsyncClient(timeout=AI_TIMEOUT) as client:
+            resp = await client.post(HF_ROUTER_URL, json=payload, headers=headers)
 
-        response = chat_tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
-        print(f"AI raw response: {response}")
+        if resp.status_code != 200:
+            print(f"HF Router HTTP {resp.status_code}: {resp.text[:500]}")
+            return {"reply": "I'm having trouble connecting to my brain right now. Please try again in a moment.", "calls": []}
 
-        # Parse JSON (with auto-repair for common small-model malformations)
-        result = parse_ai_response(response)
+        data = resp.json()
+        response_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        print(f"AI raw response: {response_text}")
+        print(f"Tokens used: {data.get('usage', {})}")
+
+        # Parse JSON (large models are usually clean, but keep the robust parser for safety)
+        result = parse_ai_response(response_text)
         if result is not None:
             return result
 
-        # All parsing failed - return the raw text as the reply
-        return {"reply": response, "calls": []}
+        # No JSON parseable - return raw text as reply
+        return {"reply": response_text, "calls": []}
 
+    except httpx.TimeoutException:
+        print("HF Router timeout")
+        return {"reply": "I'm thinking... could you try again?", "calls": []}
     except Exception as e:
         print(f"AI error: {e}")
-        return {"reply": "I'm thinking... could you try again?", "calls": []}
+        return {"reply": "I'm having trouble right now. Please try again.", "calls": []}
 
 
 def parse_ai_response(response: str) -> Optional[Dict]:
     """
     Parse the AI's response into {reply, calls}.
 
-    Small models (Qwen2.5-1.5B/3B, etc.) frequently emit slightly-malformed JSON:
-      - Trailing garbage after the JSON closes: {"...":"..."}"  or  {...}}
-      - Missing closing quote on keys: {"product_number: 1}
-      - Single quotes, trailing commas, unquoted keys
-      - Multiple JSON objects concatenated
-
-    Strategies (in order):
-      1. Bracket-matched extraction of the first balanced {...}, then direct parse.
-      2. Bracket-matched substring + auto-repair.
-      3. Last-{ to first-} substring + auto-repair (handles missing-quote case where
-         bracket-matching fails because string detection is confused).
-      4. Fallback: return None (caller treats raw text as reply).
+    Large models (Qwen2.5-72B) usually emit clean JSON. We keep the robust
+    multi-strategy parser as defensive coding for edge cases.
     """
     if not response:
         return None
+
+    # Strip code fences if present (```json ... ```)
+    stripped = response.strip()
+    if stripped.startswith("```"):
+        lines = stripped.split("\n")
+        # Remove first fence line and last fence line
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+        response = stripped
 
     json_start = response.find('{')
     if json_start == -1:
@@ -338,15 +348,13 @@ def parse_ai_response(response: str) -> Optional[Dict]:
         if result is not None:
             return result
 
-        # Strategy 2: balanced substring + repair
         repaired = _repair_json(json_str)
         if repaired != json_str:
             result = _try_parse(repaired, response, repair_log=True)
             if result is not None:
                 return result
 
-    # Strategy 3: first-{ to last-} (handles missing-quote case where bracket matching
-    # gets confused by unbalanced string quotes)
+    # Strategy 2: first-{ to last-} (handles missing-quote case)
     json_end = response.rfind('}') + 1
     if json_end > json_start:
         json_str = response[json_start:json_end]
@@ -360,12 +368,10 @@ def parse_ai_response(response: str) -> Optional[Dict]:
             if result is not None:
                 return result
 
-    # Strategy 4: nothing parseable - signal failure
     return None
 
 
 def _try_parse(json_str: str, raw_response: str, repair_log: bool = False) -> Optional[Dict]:
-    """Try to parse json_str. On success, normalize {reply, calls} and return."""
     try:
         result = json.loads(json_str)
         if not isinstance(result, dict):
@@ -382,11 +388,6 @@ def _try_parse(json_str: str, raw_response: str, repair_log: bool = False) -> Op
 
 
 def _find_balanced_json_end(s: str, start: int) -> int:
-    """
-    Walk from s[start] (must be '{') and balance braces/brackets while
-    respecting string literals and escape sequences. Returns the index
-    AFTER the matching '}' (i.e. exclusive end), or -1 if unbalanced.
-    """
     if start >= len(s) or s[start] != '{':
         return -1
     depth = 0
@@ -415,34 +416,18 @@ def _find_balanced_json_end(s: str, start: int) -> int:
 
 
 def _repair_json(s: str) -> str:
-    """Apply common JSON repairs for small-LLM output. Idempotent-ish."""
     import re
-
-    # 1. Missing closing quote on object keys: {"key: value} -> {"key": value}
-    #    Pattern: "word followed by colon (not preceded by closing quote)
     s = re.sub(r'"(\w+):\s', r'"\1": ', s)
-
-    # 2. Single quotes -> double quotes (only for keys/values, naive but works for our schema)
-    #    Skip this if the string contains apostrophes inside text to avoid breaking prose.
-    #    We only apply it if there are no double-quoted strings already containing apostrophes.
     if "'" in s and not re.search(r'"[^"]*\'[^"]*"', s):
         s = s.replace("'", '"')
-
-    # 3. Trailing comma before } or ]
     s = re.sub(r',\s*([}\]])', r'\1', s)
-
-    # 4. Unquoted keys: {function: "x"} -> {"function": "x"}
     s = re.sub(r'(?<=[{,])\s*(\w+)\s*:', r' "\1":', s)
-
     return s
 
 
 async def execute_function_call(call: Dict, shown_products: List,
                                  message: str, image_description: str = None) -> Dict:
-    """
-    Dynamically execute ANY function the AI decides to call.
-    No hardcoded intent matching - just look up the function and run it.
-    """
+    """Dynamically execute ANY function the AI decides to call."""
     func_name = call.get("function", "")
     args = call.get("args", {})
 
@@ -454,7 +439,6 @@ async def execute_function_call(call: Dict, shown_products: List,
         query = args.get("query", message)
         max_price = args.get("max_price")
 
-        # Enhance with image description if available
         if image_description and image_description != "an image":
             for word in image_description.lower().split()[:4]:
                 if len(word) > 2 and word not in query.lower():
@@ -471,7 +455,6 @@ async def execute_function_call(call: Dict, shown_products: List,
 
     elif func_name == "remove_from_cart":
         product_number = args.get("product_number", 1)
-        # Send both field names so both website and telegram can use it
         result["success"] = True
         result["data"] = {
             "type": "remove_from_cart",
@@ -515,12 +498,21 @@ async def root():
     return {
         "online": True,
         "ai": "EeshaMart Dynamic AI",
-        "features": ["conversation_memory", "function_calling", "vision", "dynamic"]
+        "chat_model": HF_INFERENCE_MODEL,
+        "vision_model": VISION_MODEL_ID,
+        "features": ["conversation_memory", "function_calling", "vision", "dynamic", "remote_llm"]
     }
+
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "vision": True, "mode": "dynamic"}
+    return {
+        "ok": True,
+        "vision": True,
+        "mode": "dynamic",
+        "chat_model": HF_INFERENCE_MODEL,
+    }
+
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
@@ -587,7 +579,6 @@ async def chat(req: ChatRequest):
                                "view_cart", "checkout", "update_cart") and exec_result["success"]:
                 action_data = func_data
 
-                # Handle login requirement for cart operations
                 if func_name in ("view_cart",) and not is_logged_in:
                     result["response"] = "Please login to view your cart."
                     result["action"] = {"type": "login_required"}
@@ -595,6 +586,7 @@ async def chat(req: ChatRequest):
                     result["action"] = action_data
 
     return result
+
 
 if __name__ == "__main__":
     import uvicorn

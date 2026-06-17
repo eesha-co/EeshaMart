@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 httpx
-transformers
 torch
-accelerate
+transformers
 Pillow

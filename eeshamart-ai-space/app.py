@@ -615,13 +615,11 @@ async def chat(req: ChatRequest):
         "image_description": image_description
     }
 
-    # Backend-side login enforcement (defensive).
-    # The AI is instructed to ask users to login before cart operations, but we
-    # cannot trust the LLM to always honor this. If the user is not logged in,
-    # intercept ANY cart-modifying or cart-viewing function call and return a
-    # login_required action instead. This is the single source of truth for auth.
-    CART_FUNCTIONS = {"add_to_cart", "remove_from_cart", "clear_cart",
-                      "view_cart", "checkout", "update_cart"}
+    # Simple auth rule:
+    #   - Logged in  → allow all functions (search, cart ops, checkout, etc.)
+    #   - Not logged in → allow only search_products. Any other function call
+    #     becomes login_required so the frontend can prompt for login.
+    ALLOWED_WHEN_LOGGED_OUT = {"search_products"}
 
     # Execute all function calls dynamically
     if calls and len(calls) > 0:
@@ -633,38 +631,30 @@ async def chat(req: ChatRequest):
             func_name = exec_result.get("function", "")
             func_data = exec_result.get("data")
 
+            if not is_logged_in and func_name not in ALLOWED_WHEN_LOGGED_OUT:
+                # Block: user must login first.
+                result["action"] = {"type": "login_required"}
+                # Don't leak cart state in the reply - clear it unless the AI
+                # already mentioned login.
+                reply_lower = reply.lower()
+                if not any(k in reply_lower for k in ("login", "log in", "sign in", "account")):
+                    result["response"] = ""
+                continue
+
             if func_name == "search_products" and exec_result["success"]:
-                products = func_data
-                result["products"] = products
-                # If the AI didn't write a reply and the search returned nothing,
-                # leave the reply empty - the frontend already shows "no products found"
-                # UI based on the empty products array. We do NOT inject hardcoded text.
+                result["products"] = func_data
 
-            elif func_name in CART_FUNCTIONS and exec_result["success"]:
-                # Enforce login on the BACKEND, regardless of what the AI said.
-                if not is_logged_in:
-                    # Override whatever the AI said with the login_required action.
-                    # Use the AI's reply if it mentioned login, otherwise leave empty
-                    # so the frontend can render its own login prompt UI.
-                    result["action"] = {"type": "login_required"}
-                    # Don't overwrite a helpful AI reply that already mentions login
-                    # (e.g. "Please login to view your cart."), but DO overwrite any
-                    # reply that leaks cart contents (e.g. "Your cart is empty").
-                    reply_lower = reply.lower()
-                    if not any(k in reply_lower for k in ("login", "log in", "sign in", "account")):
-                        result["response"] = ""
-                else:
-                    result["action"] = func_data
+            elif exec_result["success"]:
+                result["action"] = func_data
 
-    # Second line of defense: backend intent detection.
-    # If the user is not logged in AND their message clearly asks for a cart
-    # operation, but the AI did NOT emit any cart function call (e.g. it just
-    # answered "your cart is empty" from the context block), still return
-    # login_required. We cannot rely on the LLM to always honor the prompt.
+    # Same simple rule, applied when the AI answered from context without
+    # calling any function (e.g. it read the empty cart context and replied
+    # "your cart is empty" instead of calling view_cart). If the user's
+    # message is clearly about cart operations and they're not logged in,
+    # we still need to redirect them to login.
     if not is_logged_in and result["action"] is None:
         if _message_requests_cart_operation(req.message):
             result["action"] = {"type": "login_required"}
-            # Clear any reply that leaks cart state; keep reply if it mentions login.
             reply_lower = reply.lower()
             if not any(k in reply_lower for k in ("login", "log in", "sign in", "account")):
                 result["response"] = ""
@@ -673,18 +663,12 @@ async def chat(req: ChatRequest):
 
 
 def _message_requests_cart_operation(message: str) -> bool:
-    """
-    Lightweight heuristic to detect if the user is asking for a cart operation.
-    Used as a fallback when the AI failed to emit a cart function call but the
-    user is not logged in - we still need to enforce auth.
-
-    This is intentionally conservative: only matches clear cart-related phrasings.
-    Returns True if the message likely requests a cart operation.
-    """
+    """Conservative heuristic: detect if user is asking for a cart operation.
+    Used only to catch the case where the AI answered from context without
+    calling a cart function. Returns True if login should be required."""
     import re
     msg = message.lower().strip()
 
-    # Direct cart keywords
     cart_view_patterns = [
         r"\b(view|show|see|check|what'?s in|look at)\b.*\bcart\b",
         r"\bcart\b.*\b(view|show|see|check|contents?|items?)\b",

@@ -22,7 +22,32 @@
     // Detect full-page mode: ai-chat.html has #chatContainer
     const isFullPage = !!document.getElementById('chatContainer');
 
-    // State
+    // Inject shared product + action-result styles ONCE, regardless of mode.
+    // Both widget mode and full-page mode use the same .ai-product-card / .ai-action-result
+    // classes so users get a consistent experience across surfaces.
+    (function injectSharedStyles() {
+        if (document.getElementById('ai-shared-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'ai-shared-styles';
+        style.textContent = `
+            .ai-product-card{background:white;border-radius:10px;padding:10px;margin-top:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;gap:10px;cursor:pointer;transition:all .2s;border:2px solid transparent}
+            .ai-product-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);border-color:#f59e0b}
+            .ai-product-img{width:64px;height:64px;border-radius:8px;object-fit:cover;background:#f1f5f9;flex-shrink:0}
+            .ai-product-info{flex:1;min-width:0}
+            .ai-product-name{font-weight:600;font-size:12px;margin-bottom:2px;color:#1e293b}
+            .ai-product-price{color:#d97706;font-weight:700;font-size:13px}
+            .ai-product-meta{font-size:10px;color:#64748b;margin-top:2px}
+            .ai-product-actions{display:flex;gap:4px;margin-top:6px}
+            .ai-action-btn{padding:4px 8px;border-radius:4px;border:none;font-size:10px;font-weight:600;cursor:pointer}
+            .ai-action-btn-primary{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#0f172a}
+            .ai-action-btn-secondary{background:#f1f5f9;color:#475569}
+            .ai-action-btn:hover{transform:scale(1.05)}
+            .ai-action-result{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f0fdf4;border-radius:8px;margin-top:8px;font-size:12px;color:#166534;border:1px solid #bbf7d0}
+            .ai-action-result.error{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+            .ai-action-result.warning{background:#fffbeb;color:#92400e;border-color:#fde68a}
+        `;
+        document.head.appendChild(style);
+    })();
     let isOpen = false;
     let isLoading = false;
     let conversationHistory = [];
@@ -127,8 +152,8 @@
                 <div class="message-bubble bg-white rounded-2xl rounded-tl-md p-3.5 shadow-sm border border-gray-100 max-w-[80%]">
                     ${imageHtml}
                     <div class="text-sm text-gray-700 leading-relaxed">${parsed}</div>
-                    ${renderProductsFullPage(data.products)}
-                    ${renderActionResultFullPage(data.actionResult)}
+                    ${renderProductsWidget(data.products)}
+                    ${renderActionResultWidget(data.actionResult)}
                     <p class="text-[10px] text-gray-400 mt-1.5">${time}</p>
                 </div>`;
             chatContainer.appendChild(div);
@@ -142,52 +167,6 @@
             const chips = document.getElementById('suggestionChips');
             if (chips) chips.style.display = 'none';
         }
-    }
-
-    function renderProductsFullPage(products) {
-        if (!products || products.length === 0) return '';
-        let html = '<div class="mt-2 space-y-2">';
-        products.slice(0, 5).forEach((p, i) => {
-            const name = p.name || 'Product';
-            const price = (p.price || 0).toLocaleString();
-            const image = p.image_url || 'https://via.placeholder.com/50';
-            html += `
-                <div class="ai-product-card flex items-center gap-2.5 p-2 bg-gray-50 rounded-lg cursor-pointer border border-transparent hover:border-orange-300 transition-all" data-product-id="${p.id}" data-index="${i + 1}">
-                    <img src="${image}" alt="${name}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" onerror="this.src='https://via.placeholder.com/50'">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-xs font-semibold text-gray-800 truncate">${i + 1}. ${name}</div>
-                        <div class="text-sm font-bold text-orange-600">₦${price}</div>
-                        <div class="text-[10px] text-gray-400">${p.category || ''}</div>
-                    </div>
-                    <div class="flex gap-1.5 flex-shrink-0">
-                        <button class="ai-action-btn px-2.5 py-1 rounded-md text-[10px] font-semibold bg-gradient-to-r from-orange-400 to-orange-500 text-gray-900 hover:scale-105 transition-transform" data-action="add" data-product-id="${p.id}"><i class="fas fa-cart-plus"></i> Add</button>
-                        <button class="ai-action-btn px-2.5 py-1 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-600 hover:scale-105 transition-transform" data-action="view" data-product-id="${p.id}"><i class="fas fa-eye"></i> View</button>
-                    </div>
-                </div>`;
-        });
-        html += '</div>';
-        return html;
-    }
-
-    function renderActionResultFullPage(result) {
-        if (!result) return '';
-        const isSuccess = result.success;
-        const isWarning = result.requiresAuth;
-        let bgClass, textColor, iconClass;
-        if (isSuccess) {
-            bgClass = 'bg-green-50 border-green-200';
-            textColor = 'text-green-700';
-            iconClass = 'fa-check-circle text-green-500';
-        } else if (isWarning) {
-            bgClass = 'bg-yellow-50 border-yellow-200';
-            textColor = 'text-yellow-700';
-            iconClass = 'fa-exclamation-triangle text-yellow-500';
-        } else {
-            bgClass = 'bg-red-50 border-red-200';
-            textColor = 'text-red-700';
-            iconClass = 'fa-times-circle text-red-500';
-        }
-        return `<div class="flex items-center gap-2 p-2.5 rounded-lg mt-2 text-xs ${bgClass} border ${textColor}"><i class="fas ${iconClass}"></i> <span>${result.message}</span></div>`;
     }
 
     function fullPage_showTypingIndicator() {
@@ -352,21 +331,7 @@
             .ai-bubble strong{font-weight:600}
             .ai-message-image{margin-bottom:8px}
             .ai-message-image img{max-width:200px;max-height:150px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-            .ai-product-card{background:white;border-radius:10px;padding:10px;margin-top:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;gap:10px;cursor:pointer;transition:all .2s;border:2px solid transparent}
-            .ai-product-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);border-color:#f59e0b}
-            .ai-product-img{width:50px;height:50px;border-radius:6px;object-fit:cover;background:#f1f5f9}
-            .ai-product-info{flex:1;min-width:0}
-            .ai-product-name{font-weight:600;font-size:12px;margin-bottom:2px;color:#1e293b}
-            .ai-product-price{color:#d97706;font-weight:700;font-size:13px}
-            .ai-product-meta{font-size:10px;color:#64748b;margin-top:2px}
-            .ai-product-actions{display:flex;gap:4px;margin-top:6px}
-            .ai-action-btn{padding:4px 8px;border-radius:4px;border:none;font-size:10px;font-weight:600;cursor:pointer}
-            .ai-action-btn-primary{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#0f172a}
-            .ai-action-btn-secondary{background:#f1f5f9;color:#475569}
-            .ai-action-btn:hover{transform:scale(1.05)}
-            .ai-action-result{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#f0fdf4;border-radius:8px;margin-top:8px;font-size:12px;color:#166534;border:1px solid #bbf7d0}
-            .ai-action-result.error{background:#fef2f2;color:#991b1b;border-color:#fecaca}
-            .ai-action-result.warning{background:#fffbeb;color:#92400e;border-color:#fde68a}
+            /* Product card / action-result / button styles live in #ai-shared-styles (injected once at top of file) so they're shared with full-page mode */
             .ai-quick-actions{padding:10px 16px;border-top:1px solid #e2e8f0;background:white}
             .ai-quick-title{font-size:11px;color:#64748b;margin:0 0 6px 0}
             .ai-categories{display:flex;gap:6px;flex-wrap:wrap}
@@ -460,7 +425,7 @@ Just talk to me naturally!<br>
         if (!products || products.length === 0) return '';
         return products.slice(0, 5).map((p, i) => `
             <div class="ai-product-card" data-product-id="${p.id}" data-index="${i + 1}">
-                <img src="${p.image_url || 'https://via.placeholder.com/50'}" class="ai-product-img">
+                <img src="${p.image_url || 'https://via.placeholder.com/64'}" class="ai-product-img" alt="${p.name || 'Product'}">
                 <div class="ai-product-info">
                     <div class="ai-product-name">${i + 1}. ${p.name}</div>
                     <div class="ai-product-price">₦${(p.price || 0).toLocaleString()}</div>

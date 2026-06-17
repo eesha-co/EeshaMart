@@ -252,7 +252,13 @@ IMPORTANT:
 - When user says "change quantity to X", "I want X of this", "update to X" - call update_cart
 - When user says "that one", "the first one", "number 3" - refer to the products lists above
 - Respect negatives: "don't" means do NOT do it, "no" means no
-- Be natural and conversational. Do not be robotic or templated.{context_block}{available_block}"""
+- Be natural and conversational. Do not be robotic or templated.
+
+CRITICAL - ALWAYS CALL THE FUNCTION WHEN THE USER ASKS FOR A CART OPERATION:
+- When the user asks to view/show/see their cart (e.g. "show my cart", "what's in my cart", "view cart"), you MUST call view_cart() - NEVER answer from the [CURRENT CART] context block yourself. The backend will handle login enforcement and cart retrieval.
+- When the user asks to add/remove/clear/update cart, you MUST call the corresponding function - NEVER say "your cart is empty" or "already done" based on the context block alone.
+- The context block is for your reference to write a good reply, NOT a substitute for calling the function. The function call is what actually performs the action on the user's real cart.
+- Even if you can see the cart is empty from the context, still call view_cart() when the user asks to see their cart - the backend needs the function call to enforce authentication.{context_block}{available_block}"""
 
     # Build messages with conversation history
     messages = [{"role": "system", "content": system}]
@@ -650,7 +656,57 @@ async def chat(req: ChatRequest):
                 else:
                     result["action"] = func_data
 
+    # Second line of defense: backend intent detection.
+    # If the user is not logged in AND their message clearly asks for a cart
+    # operation, but the AI did NOT emit any cart function call (e.g. it just
+    # answered "your cart is empty" from the context block), still return
+    # login_required. We cannot rely on the LLM to always honor the prompt.
+    if not is_logged_in and result["action"] is None:
+        if _message_requests_cart_operation(req.message):
+            result["action"] = {"type": "login_required"}
+            # Clear any reply that leaks cart state; keep reply if it mentions login.
+            reply_lower = reply.lower()
+            if not any(k in reply_lower for k in ("login", "log in", "sign in", "account")):
+                result["response"] = ""
+
     return result
+
+
+def _message_requests_cart_operation(message: str) -> bool:
+    """
+    Lightweight heuristic to detect if the user is asking for a cart operation.
+    Used as a fallback when the AI failed to emit a cart function call but the
+    user is not logged in - we still need to enforce auth.
+
+    This is intentionally conservative: only matches clear cart-related phrasings.
+    Returns True if the message likely requests a cart operation.
+    """
+    import re
+    msg = message.lower().strip()
+
+    # Direct cart keywords
+    cart_view_patterns = [
+        r"\b(view|show|see|check|what'?s in|look at)\b.*\bcart\b",
+        r"\bcart\b.*\b(view|show|see|check|contents?|items?)\b",
+        r"\bmy cart\b",
+    ]
+    cart_modify_patterns = [
+        r"\b(add|put|include)\b.*\bcart\b",
+        r"\badd to cart\b",
+        r"\b(remove|delete|take out|take off)\b.*\bcart\b",
+        r"\b(clear|empty|wipe)\b.*\bcart\b",
+        r"\bcheckout\b",
+        r"\b(update|change)\b.*\b(quantity|cart|item)\b",
+        r"\b(update|change)\b.*\bto\b.*\d",
+        r"\bbuy (now|this|the|it)\b",
+        r"\border (this|the|it|now)\b",
+    ]
+
+    for pattern in cart_view_patterns + cart_modify_patterns:
+        if re.search(pattern, msg):
+            return True
+
+    return False
 
 
 if __name__ == "__main__":

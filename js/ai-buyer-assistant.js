@@ -14,7 +14,7 @@
     'use strict';
 
     const CONFIG = {
-        apiUrl: 'https://fuhaddesmond-eeshamart-ai.hf.space/api/chat',
+        apiUrl: 'https://eeshaai-eeshamart-ai.hf.space/api/chat',
         sessionKey: 'eeshamart_ai_session',
         debug: true
     };
